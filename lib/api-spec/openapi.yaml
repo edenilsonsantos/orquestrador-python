@@ -1,15 +1,28 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Python Orchestrator API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: machines
+    description: Machine/computer management
+  - name: projects
+    description: Project/automation management
+  - name: queues
+    description: Execution queue management
+  - name: executions
+    description: Execution management and logs
+  - name: schedules
+    description: Schedule and trigger management
+  - name: users
+    description: User management
+  - name: dashboard
+    description: Dashboard and metrics
 paths:
   /healthz:
     get:
@@ -24,6 +37,724 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── MACHINES ──────────────────────────────────────────────────────────────
+  /machines:
+    get:
+      operationId: listMachines
+      tags: [machines]
+      summary: List all machines
+      responses:
+        "200":
+          description: List of machines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Machine"
+    post:
+      operationId: createMachine
+      tags: [machines]
+      summary: Register a new machine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMachineBody"
+      responses:
+        "201":
+          description: Machine created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Machine"
+
+  /machines/{id}:
+    get:
+      operationId: getMachine
+      tags: [machines]
+      summary: Get machine by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Machine details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Machine"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateMachine
+      tags: [machines]
+      summary: Update a machine
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMachineBody"
+      responses:
+        "200":
+          description: Updated machine
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Machine"
+    delete:
+      operationId: deleteMachine
+      tags: [machines]
+      summary: Delete a machine
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /machines/{id}/maintenance:
+    post:
+      operationId: toggleMachineMaintenance
+      tags: [machines]
+      summary: Toggle maintenance mode for a machine
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaintenanceModeBody"
+      responses:
+        "200":
+          description: Machine updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Machine"
+
+  # ── PROJECTS ──────────────────────────────────────────────────────────────
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List all projects
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectBody"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{id}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get project by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectBody"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── QUEUES ────────────────────────────────────────────────────────────────
+  /queues:
+    get:
+      operationId: listQueues
+      tags: [queues]
+      summary: List all queues
+      responses:
+        "200":
+          description: List of queues
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Queue"
+    post:
+      operationId: createQueue
+      tags: [queues]
+      summary: Create a new queue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQueueBody"
+      responses:
+        "201":
+          description: Queue created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Queue"
+
+  /queues/{id}:
+    get:
+      operationId: getQueue
+      tags: [queues]
+      summary: Get queue by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Queue details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Queue"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateQueue
+      tags: [queues]
+      summary: Update a queue
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQueueBody"
+      responses:
+        "200":
+          description: Updated queue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Queue"
+    delete:
+      operationId: deleteQueue
+      tags: [queues]
+      summary: Delete a queue
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /queues/{id}/items:
+    get:
+      operationId: listQueueItems
+      tags: [queues]
+      summary: List items in a queue
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Queue items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Execution"
+    post:
+      operationId: addQueueItem
+      tags: [queues]
+      summary: Add an item to the queue
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddQueueItemBody"
+      responses:
+        "201":
+          description: Item added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Execution"
+
+  # ── EXECUTIONS ────────────────────────────────────────────────────────────
+  /executions:
+    get:
+      operationId: listExecutions
+      tags: [executions]
+      summary: List executions
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: projectId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: machineId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of executions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Execution"
+
+  /executions/{id}:
+    get:
+      operationId: getExecution
+      tags: [executions]
+      summary: Get execution details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Execution details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Execution"
+        "404":
+          description: Not found
+
+  /executions/{id}/logs:
+    get:
+      operationId: getExecutionLogs
+      tags: [executions]
+      summary: Get execution logs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Execution logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LogLine"
+
+  /executions/{id}/retry:
+    post:
+      operationId: retryExecution
+      tags: [executions]
+      summary: Retry a failed execution
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: New execution created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Execution"
+
+  /executions/{id}/stop:
+    post:
+      operationId: stopExecution
+      tags: [executions]
+      summary: Stop a running execution
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Execution stop requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Execution"
+
+  # ── SCHEDULES ─────────────────────────────────────────────────────────────
+  /schedules:
+    get:
+      operationId: listSchedules
+      tags: [schedules]
+      summary: List all schedules
+      responses:
+        "200":
+          description: List of schedules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Schedule"
+    post:
+      operationId: createSchedule
+      tags: [schedules]
+      summary: Create a new schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleBody"
+      responses:
+        "201":
+          description: Schedule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+
+  /schedules/{id}:
+    get:
+      operationId: getSchedule
+      tags: [schedules]
+      summary: Get schedule by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Schedule details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateSchedule
+      tags: [schedules]
+      summary: Update a schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScheduleBody"
+      responses:
+        "200":
+          description: Updated schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+    delete:
+      operationId: deleteSchedule
+      tags: [schedules]
+      summary: Delete a schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /schedules/{id}/toggle:
+    post:
+      operationId: toggleSchedule
+      tags: [schedules]
+      summary: Enable or disable a schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleScheduleBody"
+      responses:
+        "200":
+          description: Schedule toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+
+  # ── USERS ─────────────────────────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserBody"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── DASHBOARD ─────────────────────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary metrics
+      responses:
+        "200":
+          description: Dashboard metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/execution-stats:
+    get:
+      operationId: getExecutionStats
+      tags: [dashboard]
+      summary: Execution stats over the last 7 days
+      responses:
+        "200":
+          description: Daily execution stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyExecutionStat"
+
+  /dashboard/queue-health:
+    get:
+      operationId: getQueueHealth
+      tags: [dashboard]
+      summary: Health status of all queues
+      responses:
+        "200":
+          description: Queue health data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QueueHealth"
+
+  /dashboard/recent-executions:
+    get:
+      operationId: getRecentExecutions
+      tags: [dashboard]
+      summary: Recent executions across all queues
+      responses:
+        "200":
+          description: Recent executions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Execution"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +765,543 @@ components:
       required:
         - status
 
+    # ── MACHINE ─────────────────────────────────────────────────────────────
+    Machine:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        hostname:
+          type: string
+        operatingSystem:
+          type: string
+        category:
+          type: string
+          description: "rpa | backend"
+        status:
+          type: string
+          description: "online | offline | maintenance"
+        maintenanceMode:
+          type: boolean
+        lastHeartbeat:
+          type: ["string", "null"]
+        cpuPercent:
+          type: ["number", "null"]
+        memoryPercent:
+          type: ["number", "null"]
+        agentToken:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - hostname
+        - operatingSystem
+        - category
+        - status
+        - maintenanceMode
+        - agentToken
+        - createdAt
+        - updatedAt
+
+    CreateMachineBody:
+      type: object
+      properties:
+        name:
+          type: string
+        hostname:
+          type: string
+        operatingSystem:
+          type: string
+        category:
+          type: string
+      required:
+        - name
+        - hostname
+        - operatingSystem
+        - category
+
+    UpdateMachineBody:
+      type: object
+      properties:
+        name:
+          type: string
+        hostname:
+          type: string
+        operatingSystem:
+          type: string
+        category:
+          type: string
+        status:
+          type: string
+
+    MaintenanceModeBody:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+      required:
+        - enabled
+
+    # ── PROJECT ─────────────────────────────────────────────────────────────
+    Project:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        category:
+          type: string
+          description: "rpa | backend"
+        deployMethod:
+          type: string
+          description: "zip | git"
+        repositoryUrl:
+          type: ["string", "null"]
+        repositoryBranch:
+          type: ["string", "null"]
+        activeVersion:
+          type: ["string", "null"]
+        status:
+          type: string
+          description: "active | inactive | deploying"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - category
+        - deployMethod
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateProjectBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        deployMethod:
+          type: string
+        repositoryUrl:
+          type: string
+        repositoryBranch:
+          type: string
+      required:
+        - name
+        - category
+        - deployMethod
+
+    UpdateProjectBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        deployMethod:
+          type: string
+        repositoryUrl:
+          type: string
+        repositoryBranch:
+          type: string
+        status:
+          type: string
+
+    # ── QUEUE ────────────────────────────────────────────────────────────────
+    Queue:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        priority:
+          type: integer
+        maxConcurrency:
+          type: integer
+        maxRetries:
+          type: integer
+        retryIntervalSeconds:
+          type: integer
+        projectId:
+          type: integer
+        status:
+          type: string
+          description: "active | paused"
+        pendingCount:
+          type: integer
+        runningCount:
+          type: integer
+        completedCount:
+          type: integer
+        errorCount:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - priority
+        - maxConcurrency
+        - maxRetries
+        - retryIntervalSeconds
+        - projectId
+        - status
+        - pendingCount
+        - runningCount
+        - completedCount
+        - errorCount
+        - createdAt
+        - updatedAt
+
+    CreateQueueBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        priority:
+          type: integer
+        maxConcurrency:
+          type: integer
+        maxRetries:
+          type: integer
+        retryIntervalSeconds:
+          type: integer
+        projectId:
+          type: integer
+      required:
+        - name
+        - priority
+        - maxConcurrency
+        - maxRetries
+        - retryIntervalSeconds
+        - projectId
+
+    UpdateQueueBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        priority:
+          type: integer
+        maxConcurrency:
+          type: integer
+        maxRetries:
+          type: integer
+        retryIntervalSeconds:
+          type: integer
+        status:
+          type: string
+
+    AddQueueItemBody:
+      type: object
+      properties:
+        machineId:
+          type: ["integer", "null"]
+        inputData:
+          type: ["string", "null"]
+
+    # ── EXECUTION ────────────────────────────────────────────────────────────
+    Execution:
+      type: object
+      properties:
+        id:
+          type: integer
+        queueId:
+          type: integer
+        projectId:
+          type: integer
+        machineId:
+          type: ["integer", "null"]
+        status:
+          type: string
+          description: "pending | running | completed | error | stopped"
+        attempt:
+          type: integer
+        inputData:
+          type: ["string", "null"]
+        exitCode:
+          type: ["integer", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        startedAt:
+          type: ["string", "null"]
+        finishedAt:
+          type: ["string", "null"]
+        durationSeconds:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        projectName:
+          type: ["string", "null"]
+        queueName:
+          type: ["string", "null"]
+        machineName:
+          type: ["string", "null"]
+      required:
+        - id
+        - queueId
+        - projectId
+        - status
+        - attempt
+        - createdAt
+        - updatedAt
+
+    LogLine:
+      type: object
+      properties:
+        id:
+          type: integer
+        executionId:
+          type: integer
+        stream:
+          type: string
+          description: "stdout | stderr"
+        content:
+          type: string
+        timestamp:
+          type: string
+      required:
+        - id
+        - executionId
+        - stream
+        - content
+        - timestamp
+
+    # ── SCHEDULE ─────────────────────────────────────────────────────────────
+    Schedule:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        queueId:
+          type: integer
+        triggerType:
+          type: string
+          description: "cron | interval | webhook"
+        cronExpression:
+          type: ["string", "null"]
+        intervalMinutes:
+          type: ["integer", "null"]
+        webhookToken:
+          type: ["string", "null"]
+        enabled:
+          type: boolean
+        lastTriggeredAt:
+          type: ["string", "null"]
+        nextRunAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        queueName:
+          type: ["string", "null"]
+      required:
+        - id
+        - name
+        - queueId
+        - triggerType
+        - enabled
+        - createdAt
+        - updatedAt
+
+    CreateScheduleBody:
+      type: object
+      properties:
+        name:
+          type: string
+        queueId:
+          type: integer
+        triggerType:
+          type: string
+        cronExpression:
+          type: string
+        intervalMinutes:
+          type: integer
+      required:
+        - name
+        - queueId
+        - triggerType
+
+    UpdateScheduleBody:
+      type: object
+      properties:
+        name:
+          type: string
+        cronExpression:
+          type: string
+        intervalMinutes:
+          type: integer
+        enabled:
+          type: boolean
+
+    ToggleScheduleBody:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+      required:
+        - enabled
+
+    # ── USER ─────────────────────────────────────────────────────────────────
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          description: "admin | operator | viewer"
+        active:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - role
+        - active
+        - createdAt
+        - updatedAt
+
+    CreateUserBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+      required:
+        - name
+        - email
+        - role
+
+    UpdateUserBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        active:
+          type: boolean
+
+    # ── DASHBOARD ─────────────────────────────────────────────────────────────
+    DashboardSummary:
+      type: object
+      properties:
+        executionsToday:
+          type: integer
+        executionsRunning:
+          type: integer
+        successRate:
+          type: number
+        machinesOnline:
+          type: integer
+        machinesTotal:
+          type: integer
+        queuesActive:
+          type: integer
+        queuesPaused:
+          type: integer
+        projectsTotal:
+          type: integer
+        errorsToday:
+          type: integer
+        pendingItems:
+          type: integer
+      required:
+        - executionsToday
+        - executionsRunning
+        - successRate
+        - machinesOnline
+        - machinesTotal
+        - queuesActive
+        - queuesPaused
+        - projectsTotal
+        - errorsToday
+        - pendingItems
+
+    DailyExecutionStat:
+      type: object
+      properties:
+        date:
+          type: string
+        completed:
+          type: integer
+        errors:
+          type: integer
+        total:
+          type: integer
+      required:
+        - date
+        - completed
+        - errors
+        - total
+
+    QueueHealth:
+      type: object
+      properties:
+        queueId:
+          type: integer
+        queueName:
+          type: string
+        pending:
+          type: integer
+        running:
+          type: integer
+        completed:
+          type: integer
+        errors:
+          type: integer
+        status:
+          type: string
+      required:
+        - queueId
+        - queueName
+        - pending
+        - running
+        - completed
+        - errors
+        - status

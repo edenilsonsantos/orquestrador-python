@@ -1,0 +1,127 @@
+Plano de Desenvolvimento: Python Orchestrator
+Visão geral
+Um orquestrador de automações Python de código aberto (ou SaaS self-hostável) inspirado no UiPath Orchestrator, BotCity e Prefect, mas focado especificamente em projetos Python. A plataforma é dividida em dois componentes principais: o Orquestrador (web app centralizado) e o Agent (microserviço instalado nas VMs/máquinas locais).
+
+Arquitetura técnica
+Stack recomendado
+Backend (Orquestrador)
+
+Framework: FastAPI (Python) — ideal pela natureza do público-alvo e pela geração automática de OpenAPI/Swagger
+Banco de dados: PostgreSQL (produção) + SQLite (desenvolvimento local)
+Filas internas: Redis com Celery ou RQ para processamento assíncrono
+WebSockets: para streaming de logs em tempo real (via websockets ou FastAPI WebSocket)
+Auth: JWT + OAuth2 (suporte a SSO futuro)
+ORM: SQLAlchemy com Alembic para migrações
+
+Frontend (Orquestrador)
+
+React + TypeScript com Vite
+TanStack Query para dados reativos
+Tailwind CSS
+Recharts para dashboards
+xterm.js para visualização de logs em tempo real no browser
+
+Agent (Microserviço)
+
+Python puro, empacotado como serviço systemd (Linux) ou Windows Service
+Comunicação: polling HTTPS + WebSocket para receber comandos e enviar logs
+Gerenciamento de ambiente: venv isolado por projeto + pip install -r requirements.txt automatizado
+Isolamento opcional: suporte a Docker para execução em container
+
+
+Módulos do sistema
+1. Cadastros base
+Estes são os dados mestres do sistema, acessíveis pelo admin:
+
+Computadores — nome, IP/hostname, SO, categoria, status online/offline, último heartbeat
+Categorias de computador — "Automações Gráficas (RPA/UI)" e "Backend (APIs/ETL/dados)"
+Sistemas operacionais — Windows 10/11/Server, Ubuntu, Debian, CentOS, etc.
+Usuários de sistema — o usuário do SO sob o qual o Agent roda (ex: automation_user)
+Usuários do orquestrador — com roles: Admin, Operador, Viewer. Suporte a times/grupos
+Projetos/Automações — nome, descrição, categoria, repositório ou arquivo ZIP, versão ativa
+
+2. Deploy de projetos
+Duas modalidades de deploy, configuráveis por projeto:
+Via GitHub/GitLab — o Agent faz git clone ou git pull de um repositório configurado, com suporte a branch específica, autenticação via token e webhooks para deploy automático em push. Pipeline de verificação pré-deploy (ver item 6) é executada antes de qualquer git pull chegar ao Agent.
+Via upload de ZIP — o operador faz upload de um .zip do projeto no orquestrador, que armazena o arquivo e o disponibiliza para download pelo Agent. O Agent baixa, descompacta em diretório isolado, cria venv, instala dependências e sinaliza "pronto".
+O Agent mantém um diretório por projeto com sua venv isolada, garantindo que conflitos de bibliotecas entre automações diferentes nunca ocorram.
+3. Filas de execução
+Cada fila possui configuração independente:
+
+Nome, descrição e prioridade
+VMs habilitadas para executar itens desta fila
+Automações permitidas nesta fila
+Janelas de execução: dias da semana, dias do mês, horário de início/fim
+Retry automático: número máximo de tentativas, intervalo entre tentativas (fixo ou exponencial)
+Concorrência máxima: quantas execuções simultâneas são permitidas por VM
+Parâmetros de entrada: campos customizáveis passados para o script como argumentos ou variáveis de ambiente
+
+Estados de um item de fila: Pendente → Executando → Concluído / Erro → (Retry) → Excluído
+4. Agendamento e gatilhos
+
+Cron — expressão cron completa (ex: toda segunda às 8h)
+Intervalo — a cada N minutos/horas
+Webhook — endpoint HTTP gerado pelo orquestrador que adiciona item à fila ao ser chamado
+API REST — adicionar item via POST /api/v1/queues/{queue_id}/items
+Dependência de outra fila — executar automação B quando A concluir com sucesso
+Upload de arquivo — ao detectar arquivo em diretório monitorado (via Agent)
+Evento de erro — acionar fila de fallback quando outra falhar
+
+5. Logs e monitoramento em tempo real
+O Agent captura stdout e stderr do processo Python linha a linha e envia via WebSocket para o orquestrador, que persiste no banco e retransmite para o frontend. O operador vê os logs aparecendo em tempo real na interface como um terminal.
+Cada execução tem um registro de log completo com timestamp por linha, separação visual de stdout/stderr, e captura de exceções com traceback completo. Logs são exportáveis em CSV ou JSON.
+Além dos logs de execução, o Agent envia heartbeat periódico (ex: a cada 30s) com CPU, memória e status da fila local — visível no painel de computadores.
+6. Pipelines de verificação de código (CI Lite)
+Antes de qualquer deploy, um pipeline configurável roda verificações no código do projeto. Exemplos de checks:
+
+Sem credenciais hardcoded — regex detecta padrões como password=, api_key=, tokens, connection strings
+Sem arquivos .env commitados
+requirements.txt presente e sem versões não-fixadas (ex: sem requests>=2.0)
+Linting básico via flake8 ou ruff (configurável)
+Verificação de encoding de arquivos
+
+O deploy é bloqueado automaticamente se qualquer check crítico falhar. Checks podem ser marcados como "warning" (aviso sem bloqueio) ou "error" (bloqueante). O operador vê o resultado do pipeline antes de confirmar o deploy.
+7. API REST completa
+Todos os recursos do sistema são expostos via API REST com documentação automática (Swagger/OpenAPI). Exemplos de endpoints:
+
+POST /api/v1/queues/{id}/items — adicionar item na fila
+GET /api/v1/executions/{id}/logs — consultar logs de uma execução
+GET /api/v1/executions/{id}/status — status atual
+POST /api/v1/executions/{id}/retry — forçar retry
+POST /api/v1/executions/{id}/stop — solicitar parada ao Agent
+GET /api/v1/machines — listar computadores e status
+GET /api/v1/dashboard/summary — métricas do dashboard
+
+Autenticação via API Key por projeto ou token JWT de usuário.
+8. Dashboards
+
+Visão geral — execuções hoje, taxa de sucesso/erro, VMs online/offline, filas mais ativas
+Timeline de execuções — gráfico de Gantt mostrando o que rodou em cada VM ao longo do tempo
+Saúde das filas — itens pendentes, em execução, erro e concluído por fila
+Métricas de automação — tempo médio de execução, taxa de retry, frequência de erros por tipo
+Status de VMs — uso de CPU e memória reportado pelo Agent em tempo real
+
+9. Controle de erros e resiliência
+
+Retry automático configurável por fila (ex: até 3 tentativas com intervalo de 5 minutos)
+Horários proibidos de execução respeitados mesmo em retry
+Opção de notificação por e-mail ou webhook ao falhar após todas as tentativas
+Botão "Tentar novamente" manual na interface para qualquer item com status de erro
+Botão "Interromper" envia sinal SIGTERM ao processo via Agent, com timeout e SIGKILL como fallback
+Modo manutenção por VM: ao ativar, o Agent não aceita novas tarefas mas termina as em andamento
+
+10. Instalação do Agent
+O orquestrador oferece na interface um instalador gerado para cada computador cadastrado, contendo o token de autenticação pré-configurado. O operador executa um único comando:
+Linux: curl -sSL https://seu-orquestrador.com/install/agent/{token} | bash
+Windows: Script PowerShell baixado e executado como Administrador, que instala o Agent como Windows Service
+O Agent se registra automaticamente no orquestrador, aparece na lista de computadores como online, e começa a escutar comandos.
+
+Fases de desenvolvimento sugeridas
+Fase 1 — Núcleo (MVP) abrange o cadastro de computadores e projetos, a instalação do Agent básico com comunicação HTTP, o deploy via ZIP, a execução de scripts Python com captura de logs, e os estados de fila mais básicos (pendente, executando, concluído, erro).
+Fase 2 — Filas e Agendamento adiciona as filas de execução com configuração completa, agendamento cron e por intervalo, retry automático, janelas de horário permitido, e a visualização de logs em tempo real via WebSocket.
+Fase 3 — Integração e Deploy avançado inclui deploy via GitHub/GitLab, o pipeline de verificação de código, upload de ZIP com versionamento, e rollback de versão.
+Fase 4 — Dashboards e API expõe toda a API REST documentada, constrói os dashboards de monitoramento, e adiciona os gatilhos de webhook e dependência entre filas.
+Fase 5 — Produção e Segurança cobre autenticação robusta com roles, suporte a SSO, criptografia de credenciais armazenadas, auditoria de ações, notificações por e-mail/webhook, e a opção de execução via Docker no Agent.
+
+Diferenciais em relação às ferramentas de mercado
+Comparado ao BotCity e UiPath Orchestrator, este projeto seria focado exclusivamente em Python (sem necessidade de SDK proprietário), open-source ou self-hostável, com interface em português como primeira língua, pipeline de verificação de segurança embutida, e suporte nativo a ambos os cenários — automações gráficas e scripts de backend — com diferenciação explícita por categoria de VM
