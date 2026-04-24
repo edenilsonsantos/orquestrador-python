@@ -5,3 +5,4 @@ export * from "./executions";
 export * from "./log_lines";
 export * from "./schedules";
 export * from "./users";
+export * from "./assets";

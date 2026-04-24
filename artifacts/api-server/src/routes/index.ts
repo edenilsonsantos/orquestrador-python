@@ -7,6 +7,8 @@ import executionsRouter from "./executions";
 import schedulesRouter from "./schedules";
 import usersRouter from "./users";
 import dashboardRouter from "./dashboard";
+import assetsRouter from "./assets";
+import agentRouter from "./agent";
 
 const router: IRouter = Router();
 
@@ -18,5 +20,7 @@ router.use(executionsRouter);
 router.use(schedulesRouter);
 router.use(usersRouter);
 router.use(dashboardRouter);
+router.use(assetsRouter);
+router.use(agentRouter);
 
 export default router;

@@ -242,6 +242,44 @@ export interface UpdateUserBody {
   active?: boolean;
 }
 
+export interface Asset {
+  id: number;
+  name: string;
+  /** credential | api_key | text */
+  type: string;
+  /** @nullable */
+  username?: string | null;
+  /** Display value (masked for credential and api_key types) */
+  value: string;
+  /** @nullable */
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAssetBody {
+  name: string;
+  type: string;
+  username?: string;
+  value: string;
+  description?: string;
+}
+
+export interface UpdateAssetBody {
+  name?: string;
+  type?: string;
+  username?: string;
+  value?: string;
+  description?: string;
+}
+
+export interface AgentInfo {
+  version: string;
+  downloadUrl: string;
+  filename: string;
+  platform: string;
+}
+
 export interface DashboardSummary {
   executionsToday: number;
   executionsRunning: number;

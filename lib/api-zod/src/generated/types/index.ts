@@ -7,6 +7,9 @@
  */
 
 export * from "./addQueueItemBody";
+export * from "./agentInfo";
+export * from "./asset";
+export * from "./createAssetBody";
 export * from "./createMachineBody";
 export * from "./createProjectBody";
 export * from "./createQueueBody";
@@ -25,6 +28,7 @@ export * from "./queue";
 export * from "./queueHealth";
 export * from "./schedule";
 export * from "./toggleScheduleBody";
+export * from "./updateAssetBody";
 export * from "./updateMachineBody";
 export * from "./updateProjectBody";
 export * from "./updateQueueBody";

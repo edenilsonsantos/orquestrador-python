@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Activity, Server, Settings, Users, Layers, PlayCircle, Clock, LayoutGrid } from "lucide-react";
+import { Activity, Server, Users, Layers, PlayCircle, Clock, LayoutGrid, KeyRound, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
@@ -9,8 +9,9 @@ const NAV_ITEMS = [
   { href: "/queues", label: "Filas", icon: Layers },
   { href: "/executions", label: "Execucoes", icon: PlayCircle },
   { href: "/schedules", label: "Agendamentos", icon: Clock },
+  { href: "/assets", label: "Assets", icon: KeyRound },
   { href: "/users", label: "Usuarios", icon: Users },
-  { href: "/settings", label: "Configuracoes", icon: Settings },
+  { href: "/manual", label: "Manual", icon: BookOpen },
 ];
 
 export function Sidebar() {

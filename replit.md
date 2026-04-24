@@ -52,10 +52,21 @@ artifacts/
 - `/executions/:id` — Execution detail with logs
 - `/schedules` — Cron/interval/webhook schedulers
 - `/users` — User management (admin/operator/viewer roles)
+- `/assets` — Global env vars/credentials/API keys (3 types: text, credential, api_key) injected as env vars in executions
+- `/manual` — Operator manual: menu reference, agent install steps, projeto.yaml/main.py/requirements.txt examples
+
+## Agent Microservice
+
+- Python script `artifacts/api-server/src/agent/agent.py` is copied to `dist/agent/` at build time
+- Endpoints: `GET /api/agent/info` (version metadata), `GET /api/agent/download` (downloads `agent.py`), `GET /api/agent/template` (project scaffold files)
+- Runtime endpoints used by the agent: `POST /api/agent/heartbeat`, `GET /api/agent/next-execution?machine=<name>`, `POST /api/agent/assets`
+- Asset values are masked in `/api/assets` (UI listing) but returned in plain text from `/api/agent/assets` so the agent can inject them as env vars when running a project
 
 ## Important Notes
 
-- `lib/api-zod/src/index.ts` must ONLY contain `export * from "./generated/api"` — codegen overwrites and causes duplicate export errors otherwise
+- `lib/api-zod/src/index.ts` must ONLY contain `export * from "./generated/api"` — codegen postgen script in `lib/api-spec/package.json` auto-overwrites it
 - All routes use `serialize()` helper before `.parse()` to convert Drizzle `Date` objects → ISO strings for Zod validation
 - API server port: 8080, Frontend port: 18842
-- Database seeded with 5 machines, 5 projects, 4 queues, 6 executions, 4 schedules, 5 users
+- Database seeded with 5 machines, 5 projects, 4 queues, 6 executions, 4 schedules, 5 users, 7+ assets
+- Agent zip extraction is hardened against Zip Slip (path traversal) — see `_safe_extract_zip` in `agent.py`
+- PATCH `/api/assets/:id` validates `type` ∈ `{credential, api_key, text}` to prevent mask bypass

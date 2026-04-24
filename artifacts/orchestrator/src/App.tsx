@@ -12,6 +12,8 @@ import ExecutionsPage from "@/pages/executions";
 import ExecutionDetailPage from "@/pages/execution-detail";
 import SchedulesPage from "@/pages/schedules";
 import UsersPage from "@/pages/users";
+import AssetsPage from "@/pages/assets";
+import ManualPage from "@/pages/manual";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,6 +36,8 @@ function Router() {
         <Route path="/executions/:id" component={ExecutionDetailPage} />
         <Route path="/schedules" component={SchedulesPage} />
         <Route path="/users" component={UsersPage} />
+        <Route path="/assets" component={AssetsPage} />
+        <Route path="/manual" component={ManualPage} />
         <Route component={NotFound} />
       </Switch>
     </MainLayout>

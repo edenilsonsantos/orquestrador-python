@@ -23,6 +23,10 @@ tags:
     description: User management
   - name: dashboard
     description: Dashboard and metrics
+  - name: assets
+    description: Global assets (env vars, credentials, API keys)
+  - name: agent
+    description: Agent client download and integration
 paths:
   /healthz:
     get:
@@ -696,6 +700,91 @@ paths:
         "204":
           description: Deleted
 
+  # ── ASSETS ────────────────────────────────────────────────────────────────
+  /assets:
+    get:
+      operationId: listAssets
+      tags: [assets]
+      summary: List all assets
+      responses:
+        "200":
+          description: List of assets (sensitive values masked)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Asset"
+    post:
+      operationId: createAsset
+      tags: [assets]
+      summary: Create a new asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetBody"
+      responses:
+        "201":
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /assets/{id}:
+    patch:
+      operationId: updateAsset
+      tags: [assets]
+      summary: Update an asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetBody"
+      responses:
+        "200":
+          description: Updated asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    delete:
+      operationId: deleteAsset
+      tags: [assets]
+      summary: Delete an asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── AGENT ─────────────────────────────────────────────────────────────────
+  /agent/info:
+    get:
+      operationId: getAgentInfo
+      tags: [agent]
+      summary: Get agent download metadata
+      responses:
+        "200":
+          description: Agent info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentInfo"
+
   # ── DASHBOARD ─────────────────────────────────────────────────────────────
   /dashboard/summary:
     get:
@@ -1226,6 +1315,90 @@ components:
           type: string
         active:
           type: boolean
+
+    # ── ASSET ────────────────────────────────────────────────────────────────
+    Asset:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          description: "credential | api_key | text"
+        username:
+          type:
+            - string
+            - "null"
+        value:
+          type: string
+          description: "Display value (masked for credential and api_key types)"
+        description:
+          type:
+            - string
+            - "null"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - type
+        - value
+        - createdAt
+        - updatedAt
+
+    CreateAssetBody:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        username:
+          type: string
+        value:
+          type: string
+        description:
+          type: string
+      required:
+        - name
+        - type
+        - value
+
+    UpdateAssetBody:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        username:
+          type: string
+        value:
+          type: string
+        description:
+          type: string
+
+    # ── AGENT ────────────────────────────────────────────────────────────────
+    AgentInfo:
+      type: object
+      properties:
+        version:
+          type: string
+        downloadUrl:
+          type: string
+        filename:
+          type: string
+        platform:
+          type: string
+      required:
+        - version
+        - downloadUrl
+        - filename
+        - platform
 
     # ── DASHBOARD ─────────────────────────────────────────────────────────────
     DashboardSummary:

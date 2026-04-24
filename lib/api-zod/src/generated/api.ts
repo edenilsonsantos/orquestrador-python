@@ -672,6 +672,79 @@ export const DeleteUserParams = zod.object({
 });
 
 /**
+ * @summary List all assets
+ */
+export const ListAssetsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  type: zod.string().describe("credential | api_key | text"),
+  username: zod.string().nullish(),
+  value: zod
+    .string()
+    .describe("Display value (masked for credential and api_key types)"),
+  description: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListAssetsResponse = zod.array(ListAssetsResponseItem);
+
+/**
+ * @summary Create a new asset
+ */
+export const CreateAssetBody = zod.object({
+  name: zod.string(),
+  type: zod.string(),
+  username: zod.string().optional(),
+  value: zod.string(),
+  description: zod.string().optional(),
+});
+
+/**
+ * @summary Update an asset
+ */
+export const UpdateAssetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAssetBody = zod.object({
+  name: zod.string().optional(),
+  type: zod.string().optional(),
+  username: zod.string().optional(),
+  value: zod.string().optional(),
+  description: zod.string().optional(),
+});
+
+export const UpdateAssetResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  type: zod.string().describe("credential | api_key | text"),
+  username: zod.string().nullish(),
+  value: zod
+    .string()
+    .describe("Display value (masked for credential and api_key types)"),
+  description: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete an asset
+ */
+export const DeleteAssetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Get agent download metadata
+ */
+export const GetAgentInfoResponse = zod.object({
+  version: zod.string(),
+  downloadUrl: zod.string(),
+  filename: zod.string(),
+  platform: zod.string(),
+});
+
+/**
  * @summary Get dashboard summary metrics
  */
 export const GetDashboardSummaryResponse = zod.object({

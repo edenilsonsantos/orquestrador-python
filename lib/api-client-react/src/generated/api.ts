@@ -18,6 +18,9 @@ import type {
 
 import type {
   AddQueueItemBody,
+  AgentInfo,
+  Asset,
+  CreateAssetBody,
   CreateMachineBody,
   CreateProjectBody,
   CreateQueueBody,
@@ -36,6 +39,7 @@ import type {
   QueueHealth,
   Schedule,
   ToggleScheduleBody,
+  UpdateAssetBody,
   UpdateMachineBody,
   UpdateProjectBody,
   UpdateQueueBody,
@@ -2984,6 +2988,411 @@ export const useDeleteUser = <
 > => {
   return useMutation(getDeleteUserMutationOptions(options));
 };
+
+/**
+ * @summary List all assets
+ */
+export const getListAssetsUrl = () => {
+  return `/api/assets`;
+};
+
+export const listAssets = async (options?: RequestInit): Promise<Asset[]> => {
+  return customFetch<Asset[]>(getListAssetsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAssetsQueryKey = () => {
+  return [`/api/assets`] as const;
+};
+
+export const getListAssetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAssets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAssets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAssetsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssets>>> = ({
+    signal,
+  }) => listAssets({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAssets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAssetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAssets>>
+>;
+export type ListAssetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all assets
+ */
+
+export function useListAssets<
+  TData = Awaited<ReturnType<typeof listAssets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAssets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAssetsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new asset
+ */
+export const getCreateAssetUrl = () => {
+  return `/api/assets`;
+};
+
+export const createAsset = async (
+  createAssetBody: CreateAssetBody,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getCreateAssetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAssetBody),
+  });
+};
+
+export const getCreateAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAsset>>,
+    TError,
+    { data: BodyType<CreateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAsset>>,
+  TError,
+  { data: BodyType<CreateAssetBody> },
+  TContext
+> => {
+  const mutationKey = ["createAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAsset>>,
+    { data: BodyType<CreateAssetBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAsset(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAsset>>
+>;
+export type CreateAssetMutationBody = BodyType<CreateAssetBody>;
+export type CreateAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new asset
+ */
+export const useCreateAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAsset>>,
+    TError,
+    { data: BodyType<CreateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAsset>>,
+  TError,
+  { data: BodyType<CreateAssetBody> },
+  TContext
+> => {
+  return useMutation(getCreateAssetMutationOptions(options));
+};
+
+/**
+ * @summary Update an asset
+ */
+export const getUpdateAssetUrl = (id: number) => {
+  return `/api/assets/${id}`;
+};
+
+export const updateAsset = async (
+  id: number,
+  updateAssetBody: UpdateAssetBody,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getUpdateAssetUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAssetBody),
+  });
+};
+
+export const getUpdateAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAsset>>,
+    TError,
+    { id: number; data: BodyType<UpdateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAsset>>,
+  TError,
+  { id: number; data: BodyType<UpdateAssetBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAsset>>,
+    { id: number; data: BodyType<UpdateAssetBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAsset(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAsset>>
+>;
+export type UpdateAssetMutationBody = BodyType<UpdateAssetBody>;
+export type UpdateAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an asset
+ */
+export const useUpdateAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAsset>>,
+    TError,
+    { id: number; data: BodyType<UpdateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAsset>>,
+  TError,
+  { id: number; data: BodyType<UpdateAssetBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAssetMutationOptions(options));
+};
+
+/**
+ * @summary Delete an asset
+ */
+export const getDeleteAssetUrl = (id: number) => {
+  return `/api/assets/${id}`;
+};
+
+export const deleteAsset = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAssetUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAsset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAsset(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAsset>>
+>;
+
+export type DeleteAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete an asset
+ */
+export const useDeleteAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAsset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAssetMutationOptions(options));
+};
+
+/**
+ * @summary Get agent download metadata
+ */
+export const getGetAgentInfoUrl = () => {
+  return `/api/agent/info`;
+};
+
+export const getAgentInfo = async (
+  options?: RequestInit,
+): Promise<AgentInfo> => {
+  return customFetch<AgentInfo>(getGetAgentInfoUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAgentInfoQueryKey = () => {
+  return [`/api/agent/info`] as const;
+};
+
+export const getGetAgentInfoQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentInfo>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentInfo>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAgentInfoQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAgentInfo>>> = ({
+    signal,
+  }) => getAgentInfo({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentInfo>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentInfoQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentInfo>>
+>;
+export type GetAgentInfoQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get agent download metadata
+ */
+
+export function useGetAgentInfo<
+  TData = Awaited<ReturnType<typeof getAgentInfo>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentInfo>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentInfoQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get dashboard summary metrics
