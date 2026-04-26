@@ -29,7 +29,6 @@ export const ListMachinesResponseItem = zod.object({
   lastHeartbeat: zod.string().nullish(),
   cpuPercent: zod.number().nullish(),
   memoryPercent: zod.number().nullish(),
-  agentToken: zod.string(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -46,27 +45,32 @@ export const CreateMachineBody = zod.object({
 });
 
 /**
- * @summary Get machine by ID
+ * @summary Get machine by ID (includes agent token)
  */
 export const GetMachineParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const GetMachineResponse = zod.object({
-  id: zod.number(),
-  name: zod.string(),
-  hostname: zod.string(),
-  operatingSystem: zod.string(),
-  category: zod.string().describe("rpa | backend"),
-  status: zod.string().describe("online | offline | maintenance"),
-  maintenanceMode: zod.boolean(),
-  lastHeartbeat: zod.string().nullish(),
-  cpuPercent: zod.number().nullish(),
-  memoryPercent: zod.number().nullish(),
-  agentToken: zod.string(),
-  createdAt: zod.string(),
-  updatedAt: zod.string(),
-});
+export const GetMachineResponse = zod
+  .object({
+    id: zod.number(),
+    name: zod.string(),
+    hostname: zod.string(),
+    operatingSystem: zod.string(),
+    category: zod.string().describe("rpa | backend"),
+    status: zod.string().describe("online | offline | maintenance"),
+    maintenanceMode: zod.boolean(),
+    lastHeartbeat: zod.string().nullish(),
+    cpuPercent: zod.number().nullish(),
+    memoryPercent: zod.number().nullish(),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+  })
+  .and(
+    zod.object({
+      agentToken: zod.string(),
+    }),
+  );
 
 /**
  * @summary Update a machine
@@ -94,7 +98,6 @@ export const UpdateMachineResponse = zod.object({
   lastHeartbeat: zod.string().nullish(),
   cpuPercent: zod.number().nullish(),
   memoryPercent: zod.number().nullish(),
-  agentToken: zod.string(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -128,7 +131,6 @@ export const ToggleMachineMaintenanceResponse = zod.object({
   lastHeartbeat: zod.string().nullish(),
   cpuPercent: zod.number().nullish(),
   memoryPercent: zod.number().nullish(),
-  agentToken: zod.string(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });

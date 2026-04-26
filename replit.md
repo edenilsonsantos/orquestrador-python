@@ -70,3 +70,11 @@ artifacts/
 - Database seeded with 5 machines, 5 projects, 4 queues, 6 executions, 4 schedules, 5 users, 7+ assets
 - Agent zip extraction is hardened against Zip Slip (path traversal) — see `_safe_extract_zip` in `agent.py`
 - PATCH `/api/assets/:id` validates `type` ∈ `{credential, api_key, text}` to prevent mask bypass
+
+## Machine Connection Security
+
+- The OpenAPI spec splits machine schemas: `Machine` (no token, used by `GET /machines` listing) and `MachineWithToken` (used by `POST /machines` and `GET /machines/:id`)
+- The list endpoint strips `agentToken` server-side; the token is only exposed via single-machine fetch
+- The `Conexão` button on each machine card opens a dialog that fetches the machine by id (lazy, on-demand)
+- Right after creating a machine, the connection dialog auto-opens with the freshly returned token (cached via `qc.setQueryData(getGetMachineQueryKey(id), created)`)
+- All `/agent/*` runtime endpoints (`heartbeat`, `next-execution`, `assets`) require a valid `Authorization: Bearer <agentToken>` header that matches `machinesTable.agentToken` for the named machine — invalid/missing tokens return 401

@@ -25,10 +25,13 @@ export interface Machine {
   cpuPercent?: number | null;
   /** @nullable */
   memoryPercent?: number | null;
-  agentToken: string;
   createdAt: string;
   updatedAt: string;
 }
+
+export type MachineWithToken = Machine & {
+  agentToken: string;
+};
 
 export interface CreateMachineBody {
   name: string;

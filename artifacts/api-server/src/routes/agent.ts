@@ -127,15 +127,30 @@ router.get("/agent/template", (_req, res): void => {
 
 // ─── RUNTIME ENDPOINTS USED BY agent.py ──────────────────────────────────
 
+function extractBearer(req: any): string | null {
+  const h = req.headers["authorization"] || req.headers["Authorization"];
+  if (!h || typeof h !== "string") return null;
+  const match = h.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+}
+
+async function authenticateAgent(machineName: string, token: string | null) {
+  if (!token) return null;
+  const [m] = await db.select().from(machinesTable).where(eq(machinesTable.name, machineName));
+  if (!m) return null;
+  if (m.agentToken !== token) return null;
+  return m;
+}
+
 router.post("/agent/heartbeat", async (req, res): Promise<void> => {
   const { machine, cpuPercent, memoryPercent } = req.body ?? {};
   if (!machine || typeof machine !== "string") {
     res.status(400).json({ error: "machine name required" });
     return;
   }
-  const [m] = await db.select().from(machinesTable).where(eq(machinesTable.name, machine));
+  const m = await authenticateAgent(machine, extractBearer(req));
   if (!m) {
-    res.status(404).json({ error: "machine not registered" });
+    res.status(401).json({ error: "invalid agent token" });
     return;
   }
   await db.update(machinesTable).set({
@@ -153,9 +168,9 @@ router.get("/agent/next-execution", async (req, res): Promise<void> => {
     res.status(400).json({ error: "machine query required" });
     return;
   }
-  const [m] = await db.select().from(machinesTable).where(eq(machinesTable.name, machine));
+  const m = await authenticateAgent(machine, extractBearer(req));
   if (!m) {
-    res.status(404).json({ error: "machine not registered" });
+    res.status(401).json({ error: "invalid agent token" });
     return;
   }
   const candidates = await db
@@ -187,6 +202,16 @@ router.get("/agent/next-execution", async (req, res): Promise<void> => {
 });
 
 router.post("/agent/assets", async (req, res): Promise<void> => {
+  const machineName = String(req.headers["x-agent-machine"] ?? "");
+  if (!machineName) {
+    res.status(400).json({ error: "missing X-Agent-Machine header" });
+    return;
+  }
+  const m = await authenticateAgent(machineName, extractBearer(req));
+  if (!m) {
+    res.status(401).json({ error: "invalid agent token" });
+    return;
+  }
   const names = Array.isArray(req.body?.names) ? req.body.names.filter((n: any) => typeof n === "string") : [];
   if (names.length === 0) {
     res.json({});

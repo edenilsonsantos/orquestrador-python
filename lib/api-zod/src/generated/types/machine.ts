@@ -22,7 +22,6 @@ export interface Machine {
   cpuPercent?: number | null;
   /** @nullable */
   memoryPercent?: number | null;
-  agentToken: string;
   createdAt: string;
   updatedAt: string;
 }

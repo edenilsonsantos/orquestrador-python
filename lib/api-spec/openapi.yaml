@@ -73,13 +73,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Machine"
+                $ref: "#/components/schemas/MachineWithToken"
 
   /machines/{id}:
     get:
       operationId: getMachine
       tags: [machines]
-      summary: Get machine by ID
+      summary: Get machine by ID (includes agent token)
       parameters:
         - name: id
           in: path
@@ -88,11 +88,11 @@ paths:
             type: integer
       responses:
         "200":
-          description: Machine details
+          description: Machine details with connection token
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Machine"
+                $ref: "#/components/schemas/MachineWithToken"
         "404":
           description: Not found
     patch:
@@ -880,8 +880,6 @@ components:
           type: ["number", "null"]
         memoryPercent:
           type: ["number", "null"]
-        agentToken:
-          type: string
         createdAt:
           type: string
         updatedAt:
@@ -894,9 +892,18 @@ components:
         - category
         - status
         - maintenanceMode
-        - agentToken
         - createdAt
         - updatedAt
+
+    MachineWithToken:
+      allOf:
+        - $ref: "#/components/schemas/Machine"
+        - type: object
+          properties:
+            agentToken:
+              type: string
+          required:
+            - agentToken
 
     CreateMachineBody:
       type: object

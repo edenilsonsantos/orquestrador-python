@@ -33,6 +33,7 @@ import type {
   ListExecutionsParams,
   LogLine,
   Machine,
+  MachineWithToken,
   MaintenanceModeBody,
   Project,
   Queue,
@@ -218,8 +219,8 @@ export const getCreateMachineUrl = () => {
 export const createMachine = async (
   createMachineBody: CreateMachineBody,
   options?: RequestInit,
-): Promise<Machine> => {
-  return customFetch<Machine>(getCreateMachineUrl(), {
+): Promise<MachineWithToken> => {
+  return customFetch<MachineWithToken>(getCreateMachineUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -295,7 +296,7 @@ export const useCreateMachine = <
 };
 
 /**
- * @summary Get machine by ID
+ * @summary Get machine by ID (includes agent token)
  */
 export const getGetMachineUrl = (id: number) => {
   return `/api/machines/${id}`;
@@ -304,8 +305,8 @@ export const getGetMachineUrl = (id: number) => {
 export const getMachine = async (
   id: number,
   options?: RequestInit,
-): Promise<Machine> => {
-  return customFetch<Machine>(getGetMachineUrl(id), {
+): Promise<MachineWithToken> => {
+  return customFetch<MachineWithToken>(getGetMachineUrl(id), {
     ...options,
     method: "GET",
   });
@@ -355,7 +356,7 @@ export type GetMachineQueryResult = NonNullable<
 export type GetMachineQueryError = ErrorType<void>;
 
 /**
- * @summary Get machine by ID
+ * @summary Get machine by ID (includes agent token)
  */
 
 export function useGetMachine<

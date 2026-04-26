@@ -22,6 +22,7 @@ export * from "./healthStatus";
 export * from "./listExecutionsParams";
 export * from "./logLine";
 export * from "./machine";
+export * from "./machineWithToken";
 export * from "./maintenanceModeBody";
 export * from "./project";
 export * from "./queue";

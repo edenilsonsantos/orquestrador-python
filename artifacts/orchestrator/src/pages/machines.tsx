@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListMachines, useCreateMachine, useToggleMachineMaintenance, useDeleteMachine, getListMachinesQueryKey } from "@workspace/api-client-react";
+import { useListMachines, useCreateMachine, useToggleMachineMaintenance, useDeleteMachine, getListMachinesQueryKey, getGetMachineQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,9 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Server, Plus, Wrench, Trash2, Wifi, WifiOff } from "lucide-react";
+import { Server, Plus, Wrench, Trash2, KeyRound } from "lucide-react";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
+import { MachineConnectionDialog } from "@/components/machines/connection-dialog";
 
 function MachineStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; className: string }> = {
@@ -26,18 +27,24 @@ function MachineStatusBadge({ status }: { status: string }) {
 export default function MachinesPage() {
   const { data: machines, isLoading } = useListMachines();
   const [open, setOpen] = useState(false);
+  const [connectionMachineId, setConnectionMachineId] = useState<number | null>(null);
   const qc = useQueryClient();
   const createMachine = useCreateMachine();
   const toggleMaintenance = useToggleMachineMaintenance();
   const deleteMachine = useDeleteMachine();
-  const { register, handleSubmit, reset, setValue } = useForm<{ name: string; hostname: string; operatingSystem: string; category: string }>();
+  const { register, handleSubmit, reset, setValue } = useForm<{ name: string; hostname: string; operatingSystem: string; category: string }>({
+    defaultValues: { category: "backend" },
+  });
 
   function onSubmit(data: { name: string; hostname: string; operatingSystem: string; category: string }) {
     createMachine.mutate({ data }, {
-      onSuccess: () => {
+      onSuccess: (created) => {
         qc.invalidateQueries({ queryKey: getListMachinesQueryKey() });
         setOpen(false);
         reset();
+        // Seed the single-machine cache with the freshly returned token so the dialog renders instantly
+        qc.setQueryData(getGetMachineQueryKey(created.id), created);
+        setConnectionMachineId(created.id);
       }
     });
   }
@@ -134,7 +141,17 @@ export default function MachinesPage() {
                     Último heartbeat: {format(new Date(machine.lastHeartbeat), "dd/MM HH:mm:ss")}
                   </p>
                 )}
-                <div className="flex gap-2 pt-1">
+                <div className="flex gap-2 pt-1 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs"
+                    onClick={() => setConnectionMachineId(machine.id)}
+                    data-testid={`button-connection-${machine.id}`}
+                  >
+                    <KeyRound className="h-3 w-3 mr-1" />
+                    Conexão
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -166,6 +183,12 @@ export default function MachinesPage() {
           )}
         </div>
       )}
+
+      <MachineConnectionDialog
+        machineId={connectionMachineId}
+        open={connectionMachineId != null}
+        onOpenChange={(v) => !v && setConnectionMachineId(null)}
+      />
     </div>
   );
 }

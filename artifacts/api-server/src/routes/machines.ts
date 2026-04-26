@@ -21,7 +21,9 @@ const router: IRouter = Router();
 
 router.get("/machines", async (req, res): Promise<void> => {
   const machines = await db.select().from(machinesTable).orderBy(machinesTable.name);
-  res.json(ListMachinesResponse.parse(serialize(machines)));
+  // Strip agentToken from listing — only exposed via single-machine fetch
+  const safe = machines.map(({ agentToken: _t, ...rest }) => rest);
+  res.json(ListMachinesResponse.parse(serialize(safe)));
 });
 
 router.post("/machines", async (req, res): Promise<void> => {
