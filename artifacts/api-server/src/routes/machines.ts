@@ -19,6 +19,18 @@ import { serialize } from "../utils/serialize";
 
 const router: IRouter = Router();
 
+// Restrição: o nome da máquina é embutido em scripts .bat/.ps1 baixáveis
+// (instalador Windows). Permitir apenas caracteres simples evita qualquer
+// chance de injeção de comandos no shell do alvo.
+const MACHINE_NAME_RE = /^[A-Za-z0-9._ -]{1,64}$/;
+function validateMachineName(name?: string): string | null {
+  if (typeof name !== "string") return null;
+  if (!MACHINE_NAME_RE.test(name)) {
+    return 'Nome da máquina inválido. Use apenas letras (A-Z, a-z), números, ponto, sublinhado, hífen e espaço (1 a 64 caracteres).';
+  }
+  return null;
+}
+
 router.get("/machines", async (req, res): Promise<void> => {
   const machines = await db.select().from(machinesTable).orderBy(machinesTable.name);
   // Strip agentToken from listing — only exposed via single-machine fetch
@@ -30,6 +42,11 @@ router.post("/machines", async (req, res): Promise<void> => {
   const parsed = CreateMachineBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const nameError = validateMachineName(parsed.data.name);
+  if (nameError) {
+    res.status(400).json({ error: nameError });
     return;
   }
   const [machine] = await db
@@ -62,6 +79,11 @@ router.patch("/machines/:id", async (req, res): Promise<void> => {
   const parsed = UpdateMachineBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const nameError = validateMachineName(parsed.data.name);
+  if (nameError) {
+    res.status(400).json({ error: nameError });
     return;
   }
   const [machine] = await db

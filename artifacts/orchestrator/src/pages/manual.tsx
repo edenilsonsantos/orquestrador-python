@@ -152,8 +152,16 @@ export default function ManualPage() {
               </Badge>
             )}
           </div>
+          <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3">
+            <p className="text-sm font-semibold text-emerald-200 mb-1">
+              Modo facil (Windows): instalador automatico
+            </p>
+            <p className="text-xs text-emerald-100/80">
+              Em <strong>Maquinas</strong>, clique em <strong>Conexao</strong> no card da maquina e escolha <strong>"Baixar instalador .bat"</strong>. O arquivo ja vem com URL, token e nome embutidos — basta clicar com botao direito na maquina destino e <strong>"Executar como administrador"</strong>. O instalador cuida de Python, dependencias, agente e auto-start ao ligar o Windows.
+            </p>
+          </div>
           <div>
-            <p className="text-sm font-medium text-foreground mb-2">Instalacao na maquina destino:</p>
+            <p className="text-sm font-medium text-foreground mb-2">Instalacao manual (Linux / macOS / Windows):</p>
             <CodeBlock lang="bash">{`# 1. Instalar dependencias
 pip install requests pyyaml psutil
 

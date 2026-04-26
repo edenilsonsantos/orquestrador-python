@@ -78,3 +78,14 @@ artifacts/
 - The `Conexão` button on each machine card opens a dialog that fetches the machine by id (lazy, on-demand)
 - Right after creating a machine, the connection dialog auto-opens with the freshly returned token (cached via `qc.setQueryData(getGetMachineQueryKey(id), created)`)
 - All `/agent/*` runtime endpoints (`heartbeat`, `next-execution`, `assets`) require a valid `Authorization: Bearer <agentToken>` header that matches `machinesTable.agentToken` for the named machine — invalid/missing tokens return 401
+
+## Windows Installer (one-click agent setup)
+
+- True `.exe`/`.msi` requires Windows-only toolchains (PyInstaller, Inno Setup, WiX) that don't run in this Linux container
+- Instead, two **personalized installer scripts per machine** are generated server-side:
+  - `GET /api/agent/install/windows/:machineId` → returns a `.bat` with URL/token/machine name embedded
+  - `GET /api/agent/install/powershell/:machineId` → equivalent `.ps1`
+- Both installers: check Python → create `%ProgramData%\PyOrchestratorAgent` → download `agent.py` → `pip install requests pyyaml psutil` → write `run-agent.bat` launcher with credentials → register `schtasks`/`Register-ScheduledTask` for auto-start at boot → optionally start the agent
+- Buttons "Baixar instalador .bat / .ps1" are surfaced prominently at the top of the connection dialog
+- The orchestrator base URL is computed from `X-Forwarded-Proto`/`X-Forwarded-Host` (Replit proxy) so installers always point at the publicly reachable host
+- All embedded credentials are escaped (`%`/`^`/`&`/`|` for .bat; backtick/`"`/`$` for .ps1) to prevent shell injection

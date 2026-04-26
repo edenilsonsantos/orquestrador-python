@@ -32,7 +32,7 @@ export default function MachinesPage() {
   const createMachine = useCreateMachine();
   const toggleMaintenance = useToggleMachineMaintenance();
   const deleteMachine = useDeleteMachine();
-  const { register, handleSubmit, reset, setValue } = useForm<{ name: string; hostname: string; operatingSystem: string; category: string }>({
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<{ name: string; hostname: string; operatingSystem: string; category: string }>({
     defaultValues: { category: "backend" },
   });
 
@@ -77,7 +77,25 @@ export default function MachinesPage() {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <Label>Nome</Label>
-                <Input {...register("name")} placeholder="VM-Producao-01" data-testid="input-machine-name" />
+                <Input
+                  {...register("name", {
+                    required: "Nome é obrigatório",
+                    pattern: {
+                      value: /^[A-Za-z0-9._ -]{1,64}$/,
+                      message: "Use apenas letras, números, ponto, sublinhado, hífen e espaço (1 a 64 caracteres).",
+                    },
+                  })}
+                  placeholder="VM-Producao-01"
+                  data-testid="input-machine-name"
+                />
+                {errors?.name?.message && (
+                  <p className="text-xs text-destructive mt-1" data-testid="error-machine-name">
+                    {String(errors.name.message)}
+                  </p>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Apenas letras, números, ponto, sublinhado, hífen e espaço — usado no instalador Windows.
+                </p>
               </div>
               <div>
                 <Label>Hostname / IP</Label>

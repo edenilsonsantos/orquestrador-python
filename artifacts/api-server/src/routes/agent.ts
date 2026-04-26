@@ -125,6 +125,319 @@ router.get("/agent/template", (_req, res): void => {
   res.json(FRAMEWORK_TEMPLATE);
 });
 
+// ─── WINDOWS INSTALLERS (personalizados por máquina) ─────────────────────
+
+function getOrchestratorBaseUrl(req: any): string {
+  // Confia no header X-Forwarded-* (Replit proxy) ou cai para o host da request
+  const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "http";
+  const host = (req.headers["x-forwarded-host"] as string) || req.headers["host"];
+  return `${proto}://${host}`;
+}
+
+// Lista branca rígida: nome de máquina e token só podem conter caracteres
+// alfanuméricos seguros para .bat / .ps1 / shell. Tokens são UUIDs (já seguros),
+// nomes de máquina são limitados a [A-Za-z0-9._ -] no formulário de cadastro.
+// Esta validação é a defesa principal contra command injection nos instaladores.
+const SAFE_INSTALLER_VALUE = /^[A-Za-z0-9._ -]+$/;
+
+function assertSafeForInstaller(value: string, fieldName: string): void {
+  if (!SAFE_INSTALLER_VALUE.test(value)) {
+    throw new Error(
+      `Valor inválido para ${fieldName}: contém caracteres não permitidos no instalador (somente A-Z, a-z, 0-9, ponto, sublinhado, hífen e espaço).`,
+    );
+  }
+}
+
+function assertSafeUrl(url: string): void {
+  // http(s)://host[:port][/path] — sem aspas, espaços ou metacaracteres de shell
+  if (!/^https?:\/\/[A-Za-z0-9.\-:/_%?=&]+$/.test(url)) {
+    throw new Error(`URL do orquestrador inválida: ${url}`);
+  }
+}
+
+router.get("/agent/install/windows/:machineId", async (req, res): Promise<void> => {
+  const machineId = Number(req.params.machineId);
+  if (!Number.isFinite(machineId)) {
+    res.status(400).send("Invalid machineId");
+    return;
+  }
+  const [m] = await db.select().from(machinesTable).where(eq(machinesTable.id, machineId));
+  if (!m) {
+    res.status(404).send("Machine not found");
+    return;
+  }
+  const orchUrl = getOrchestratorBaseUrl(req);
+  try {
+    assertSafeUrl(orchUrl);
+    assertSafeForInstaller(m.agentToken, "token do agente");
+    assertSafeForInstaller(m.name, "nome da máquina");
+  } catch (e) {
+    res.status(400).send((e as Error).message);
+    return;
+  }
+  const token = m.agentToken;
+  const machineName = m.name;
+  const url = orchUrl;
+
+  const bat = `@echo off
+REM ===================================================================
+REM  PyOrchestrator Agent - Instalador automatizado para Windows
+REM  Maquina: ${machineName}
+REM  Gerado em: ${new Date().toISOString()}
+REM ===================================================================
+setlocal EnableDelayedExpansion
+title Instalador PyOrchestrator Agent - ${machineName}
+color 0B
+
+echo.
+echo  =====================================================
+echo   PyOrchestrator Agent - Instalador Windows
+echo   Maquina: ${machineName}
+echo  =====================================================
+echo.
+
+REM --- 1. Verifica Python ---
+echo [1/6] Verificando instalacao do Python...
+where python >nul 2>&1
+if errorlevel 1 (
+    echo.
+    echo  [ERRO] Python nao foi encontrado no PATH.
+    echo  Baixe e instale Python 3.9+ em:
+    echo     https://www.python.org/downloads/windows/
+    echo.
+    echo  IMPORTANTE: marque a opcao "Add Python to PATH" durante a instalacao.
+    echo.
+    start https://www.python.org/downloads/windows/
+    pause
+    exit /b 1
+)
+python --version
+echo.
+
+REM --- 2. Cria diretorio de instalacao ---
+set "INSTALL_DIR=%ProgramData%\\PyOrchestratorAgent"
+echo [2/6] Criando diretorio %INSTALL_DIR%...
+if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+cd /d "%INSTALL_DIR%"
+echo.
+
+REM --- 3. Baixa o agent.py ---
+echo [3/6] Baixando agente do orquestrador...
+powershell -Command "try { Invoke-WebRequest -Uri '${url}/api/agent/download' -OutFile 'pyorchestrator-agent.py' -UseBasicParsing -ErrorAction Stop; Write-Host '  OK' -ForegroundColor Green } catch { Write-Host ('  Falha: ' + $_.Exception.Message) -ForegroundColor Red; exit 1 }"
+if errorlevel 1 (
+    echo  [ERRO] Nao foi possivel baixar o agente. Verifique a conexao com ${url}.
+    pause
+    exit /b 1
+)
+echo.
+
+REM --- 4. Instala dependencias Python ---
+echo [4/6] Instalando dependencias (requests, pyyaml, psutil)...
+python -m pip install --quiet --upgrade pip
+python -m pip install --quiet requests pyyaml psutil
+if errorlevel 1 (
+    echo  [ERRO] Falha na instalacao das dependencias.
+    pause
+    exit /b 1
+)
+echo.
+
+REM --- 5. Salva configuracao ---
+echo [5/6] Gravando configuracao da maquina...
+(
+    echo @echo off
+    echo set "ORCH_URL=${url}"
+    echo set "ORCH_TOKEN=${token}"
+    echo set "ORCH_MACHINE=${machineName}"
+    echo cd /d "%INSTALL_DIR%"
+    echo python pyorchestrator-agent.py
+) > "%INSTALL_DIR%\\run-agent.bat"
+echo.
+
+REM --- 6. Cria tarefa agendada (inicia ao fazer logon do usuario) ---
+REM Usa ONLOGON para herdar o PATH do usuario (onde Python normalmente esta instalado).
+echo [6/6] Registrando tarefa agendada (inicia ao fazer logon)...
+schtasks /Query /TN "PyOrchestratorAgent" >nul 2>&1
+if not errorlevel 1 (
+    schtasks /Delete /TN "PyOrchestratorAgent" /F >nul 2>&1
+)
+schtasks /Create /TN "PyOrchestratorAgent" /TR "cmd.exe /c \\"\\"%INSTALL_DIR%\\run-agent.bat\\"\\"" /SC ONLOGON /RU "%USERNAME%" /F >nul 2>&1
+if errorlevel 1 (
+    echo  [AVISO] Nao foi possivel criar a tarefa agendada.
+    echo  O agente ainda funciona, mas voce precisara inicia-lo manualmente.
+) else (
+    echo  Tarefa "PyOrchestratorAgent" criada com sucesso.
+)
+echo.
+
+echo  =====================================================
+echo   INSTALACAO CONCLUIDA!
+echo  =====================================================
+echo.
+echo   Iniciar agora?  (S/N)
+choice /C SN /N /T 10 /D S
+if errorlevel 2 goto :done
+echo.
+echo   Iniciando agente em uma nova janela...
+start "PyOrchestrator Agent" cmd /k "%INSTALL_DIR%\\run-agent.bat"
+
+:done
+echo.
+echo   Para iniciar manualmente:   "%INSTALL_DIR%\\run-agent.bat"
+echo   Para parar a tarefa agendada: schtasks /End /TN PyOrchestratorAgent
+echo.
+pause
+endlocal
+`;
+
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="install-pyorchestrator-${m.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.bat"`,
+  );
+  res.send(bat);
+});
+
+router.get("/agent/install/powershell/:machineId", async (req, res): Promise<void> => {
+  const machineId = Number(req.params.machineId);
+  if (!Number.isFinite(machineId)) {
+    res.status(400).send("Invalid machineId");
+    return;
+  }
+  const [m] = await db.select().from(machinesTable).where(eq(machinesTable.id, machineId));
+  if (!m) {
+    res.status(404).send("Machine not found");
+    return;
+  }
+  const orchUrl = getOrchestratorBaseUrl(req);
+  try {
+    assertSafeUrl(orchUrl);
+    assertSafeForInstaller(m.agentToken, "token do agente");
+    assertSafeForInstaller(m.name, "nome da máquina");
+  } catch (e) {
+    res.status(400).send((e as Error).message);
+    return;
+  }
+  const token = m.agentToken;
+  const machineName = m.name;
+  const url = orchUrl;
+
+  const ps1 = `# ===================================================================
+#  PyOrchestrator Agent - Instalador PowerShell
+#  Maquina: ${machineName}
+#  Gerado em: ${new Date().toISOString()}
+#
+#  Como executar (clique direito > "Executar com PowerShell")
+#  ou no terminal:
+#     powershell -ExecutionPolicy Bypass -File install-pyorchestrator-${m.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.ps1
+# ===================================================================
+
+$ErrorActionPreference = "Stop"
+$Host.UI.RawUI.WindowTitle = "Instalador PyOrchestrator - ${machineName}"
+
+function Write-Step([string]$Msg, [int]$Step, [int]$Total) {
+    Write-Host ""
+    Write-Host ("[$Step/$Total] $Msg") -ForegroundColor Cyan
+}
+
+Write-Host ""
+Write-Host "=====================================================" -ForegroundColor Yellow
+Write-Host " PyOrchestrator Agent - Instalador PowerShell" -ForegroundColor Yellow
+Write-Host " Maquina: ${machineName}" -ForegroundColor Yellow
+Write-Host "=====================================================" -ForegroundColor Yellow
+
+# 1. Verifica Python
+Write-Step "Verificando Python..." 1 6
+$pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+if (-not $pythonCmd) {
+    Write-Host "[ERRO] Python nao encontrado no PATH." -ForegroundColor Red
+    Write-Host "Abra https://www.python.org/downloads/windows/ e instale Python 3.9+ marcando 'Add Python to PATH'." -ForegroundColor Yellow
+    Start-Process "https://www.python.org/downloads/windows/"
+    Read-Host "Pressione ENTER para sair"
+    exit 1
+}
+& python --version
+
+# 2. Diretorio de instalacao
+$InstallDir = Join-Path $env:ProgramData "PyOrchestratorAgent"
+Write-Step "Criando diretorio $InstallDir..." 2 6
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+Set-Location $InstallDir
+
+# 3. Baixa o agent.py
+Write-Step "Baixando agente..." 3 6
+try {
+    Invoke-WebRequest -Uri "${url}/api/agent/download" -OutFile "pyorchestrator-agent.py" -UseBasicParsing
+    Write-Host "  OK" -ForegroundColor Green
+} catch {
+    Write-Host ("[ERRO] Nao foi possivel baixar o agente: " + $_.Exception.Message) -ForegroundColor Red
+    Read-Host "Pressione ENTER para sair"
+    exit 1
+}
+
+# 4. Instala dependencias
+Write-Step "Instalando dependencias Python..." 4 6
+& python -m pip install --quiet --upgrade pip
+& python -m pip install --quiet requests pyyaml psutil
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERRO] Falha ao instalar dependencias." -ForegroundColor Red
+    Read-Host "Pressione ENTER para sair"
+    exit 1
+}
+
+# 5. Grava launcher com credenciais
+Write-Step "Gravando configuracao da maquina..." 5 6
+$launcher = @"
+@echo off
+set "ORCH_URL=${url}"
+set "ORCH_TOKEN=${token}"
+set "ORCH_MACHINE=${machineName}"
+cd /d "$InstallDir"
+python pyorchestrator-agent.py
+"@
+Set-Content -Path (Join-Path $InstallDir "run-agent.bat") -Value $launcher -Encoding ASCII
+
+# 6. Cria tarefa agendada
+Write-Step "Registrando tarefa agendada (auto-inicia com o Windows)..." 6 6
+try {
+    # Roda no logon do usuario atual para herdar o PATH (onde o Python esta instalado)
+    $launcher = Join-Path $InstallDir "run-agent.bat"
+    $action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument ("/c """ + $launcher + """")
+    $currentUser = "$env:USERDOMAIN\\$env:USERNAME"
+    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
+    $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Limited
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+    Register-ScheduledTask -TaskName "PyOrchestratorAgent" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+    Write-Host "  Tarefa 'PyOrchestratorAgent' registrada (inicia ao fazer logon)." -ForegroundColor Green
+} catch {
+    Write-Host ("  [AVISO] Nao foi possivel criar tarefa agendada: " + $_.Exception.Message) -ForegroundColor Yellow
+    Write-Host "  O agente ainda funciona — basta executar manualmente run-agent.bat." -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "=====================================================" -ForegroundColor Green
+Write-Host " INSTALACAO CONCLUIDA!" -ForegroundColor Green
+Write-Host "=====================================================" -ForegroundColor Green
+Write-Host ""
+$start = Read-Host "Iniciar o agente agora? (S/N)"
+if ($start -match '^[Ss]') {
+    Write-Host "Iniciando..." -ForegroundColor Cyan
+    Start-Process -FilePath (Join-Path $InstallDir "run-agent.bat")
+}
+Write-Host ""
+Write-Host "Para iniciar manualmente: $InstallDir\\run-agent.bat"
+Write-Host ""
+Read-Host "Pressione ENTER para sair"
+`;
+
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="install-pyorchestrator-${m.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.ps1"`,
+  );
+  res.send(ps1);
+});
+
 // ─── RUNTIME ENDPOINTS USED BY agent.py ──────────────────────────────────
 
 function extractBearer(req: any): string | null {
