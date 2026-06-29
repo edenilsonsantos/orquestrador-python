@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import {
   db,
   projectsTable,
@@ -8,6 +9,9 @@ import {
   queueItemsTable,
   schedulesTable,
   jobsTable,
+  assetsTable,
+  executionLogsTable,
+  apiKeysTable,
 } from "@workspace/db";
 
 export interface SeededIds {
@@ -22,6 +26,13 @@ export interface SeededIds {
   jobId: number;
   queueItemNewId: number;
   queueItemDoneId: number;
+  credentialAssetId: number;
+  apiKeyAssetId: number;
+  textAssetId: number;
+  executionLogId: number;
+  executionLogExecucao: number;
+  apiKeyId: number;
+  apiKeyPlaintext: string;
 }
 
 // Wipes every table the API reads from and re-inserts a deterministic fixture
@@ -30,7 +41,7 @@ export async function resetAndSeed(): Promise<SeededIds> {
   await db.execute(sql`
     TRUNCATE TABLE
       log_lines, execution_logs, queue_items, jobs, schedules,
-      automations, queues, machines, projects
+      automations, queues, machines, projects, assets, api_keys
     RESTART IDENTITY CASCADE
   `);
 
@@ -158,6 +169,59 @@ export async function resetAndSeed(): Promise<SeededIds> {
     exception: "kaboom",
   });
 
+  const [credentialAsset] = await db
+    .insert(assetsTable)
+    .values({
+      name: "Seed Credential",
+      type: "credential",
+      username: "seed-user",
+      value: "super-secret-password",
+      description: "seed credential asset",
+    })
+    .returning();
+
+  const [apiKeyAsset] = await db
+    .insert(assetsTable)
+    .values({
+      name: "Seed API Key Asset",
+      type: "api_key",
+      value: "sk-1234567890abcdef",
+      description: "seed api_key asset",
+    })
+    .returning();
+
+  const [textAsset] = await db
+    .insert(assetsTable)
+    .values({
+      name: "Seed Text Asset",
+      type: "text",
+      value: "plain visible text",
+    })
+    .returning();
+
+  const executionLogExecucao = 42;
+  const [executionLog] = await db
+    .insert(executionLogsTable)
+    .values({
+      id_execucao: executionLogExecucao,
+      id_automacao: automation.id,
+      vm: "seed-vm",
+      fila: "seed-fila",
+      fields: { step: "start", ok: true },
+    })
+    .returning();
+
+  const apiKeyPlaintext = "pyo_seedtestkey000000000000000000000000000000000000000000";
+  const [apiKey] = await db
+    .insert(apiKeysTable)
+    .values({
+      name: "Seed API Key",
+      keyPrefix: apiKeyPlaintext.slice(0, 12),
+      keyHash: createHash("sha256").update(apiKeyPlaintext).digest("hex"),
+      revoked: false,
+    })
+    .returning();
+
   return {
     projectId: project.id,
     machineId: machine.id,
@@ -170,5 +234,12 @@ export async function resetAndSeed(): Promise<SeededIds> {
     jobId: job.id,
     queueItemNewId: itemNew.id,
     queueItemDoneId: itemDone.id,
+    credentialAssetId: credentialAsset.id,
+    apiKeyAssetId: apiKeyAsset.id,
+    textAssetId: textAsset.id,
+    executionLogId: executionLog.id,
+    executionLogExecucao,
+    apiKeyId: apiKey.id,
+    apiKeyPlaintext,
   };
 }
