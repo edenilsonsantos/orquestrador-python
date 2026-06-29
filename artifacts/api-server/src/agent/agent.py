@@ -146,22 +146,33 @@ class Agent:
             log.warning("Erro ao consultar execucoes: %s", e)
             return None
 
-    def report_log(self, execution_id: int, level: str, message: str) -> None:
+    def report_log(self, job_id: int, level: str, message: str) -> None:
         try:
             requests.post(
-                f"{self.cfg.url}/api/executions/{execution_id}/logs",
-                json={"level": level, "message": message},
+                f"{self.cfg.url}/api/agent/jobs/{job_id}/logs",
+                json={"level": level.upper(), "content": message},
                 headers=self.cfg.headers,
                 timeout=10,
             )
         except Exception:
             pass
 
-    def report_status(self, execution_id: int, status: str, exit_code: Optional[int] = None) -> None:
+    def report_status(
+        self,
+        job_id: int,
+        status: str,
+        exit_code: Optional[int] = None,
+        error_message: Optional[str] = None,
+    ) -> None:
         try:
+            payload: Dict[str, Any] = {"status": status}
+            if exit_code is not None:
+                payload["exitCode"] = exit_code
+            if error_message is not None:
+                payload["errorMessage"] = error_message
             requests.patch(
-                f"{self.cfg.url}/api/executions/{execution_id}",
-                json={"status": status, "exitCode": exit_code},
+                f"{self.cfg.url}/api/agent/jobs/{job_id}",
+                json=payload,
                 headers=self.cfg.headers,
                 timeout=10,
             )
@@ -195,7 +206,7 @@ class Agent:
                 self.report_log(exec_id, "error", res.stderr[-2000:])
                 return None
         else:
-            version = execution.get("activeVersion")
+            version = execution.get("version")
             project_name = execution.get("projectName")
             if not version or not project_name:
                 self.report_log(exec_id, "error", "Versao ativa do projeto nao definida")
@@ -279,25 +290,27 @@ class Agent:
 
     def run_execution(self, execution: Dict[str, Any]) -> None:
         exec_id = execution["id"]
-        log.info("▶ Iniciando execucao #%s", exec_id)
+        log.info("▶ Iniciando job #%s", exec_id)
         self.report_status(exec_id, "running")
 
         project_dir = self.prepare_project(execution)
         if project_dir is None:
-            self.report_status(exec_id, "error", exit_code=1)
+            self.report_status(exec_id, "faulted", exit_code=1, error_message="Falha ao preparar o projeto")
             return
 
         if not self.install_requirements(project_dir, exec_id):
-            self.report_status(exec_id, "error", exit_code=1)
+            self.report_status(exec_id, "faulted", exit_code=1, error_message="Falha ao instalar dependencias")
             return
 
         cfg = self.load_project_yaml(project_dir)
-        entry = cfg.get("entrypoint", "main.py")
+        # entrypoint vem da automacao (next-execution), com fallback ao projeto.yaml
+        entry = execution.get("entrypoint") or cfg.get("entrypoint", "main.py")
         asset_env = self.fetch_assets(cfg.get("assets", []))
 
         env = os.environ.copy()
         env.update(asset_env)
-        env["ORCH_EXECUTION_ID"] = str(exec_id)
+        env["ORCH_JOB_ID"] = str(exec_id)
+        env["ORCH_EXECUTION_ID"] = str(exec_id)  # retrocompat com projetos antigos
 
         log.info("Executando %s/%s", project_dir, entry)
         proc = subprocess.Popen(
@@ -311,16 +324,21 @@ class Agent:
         )
 
         assert proc.stdout is not None
+        last_lines: list[str] = []
         for line in proc.stdout:
             line = line.rstrip()
             if line:
-                level = "error" if "ERROR" in line.upper() else "info"
+                level = "ERROR" if "ERROR" in line.upper() else "INFO"
                 self.report_log(exec_id, level, line)
+                last_lines.append(line)
+                if len(last_lines) > 20:
+                    last_lines.pop(0)
 
         proc.wait()
-        status = "completed" if proc.returncode == 0 else "error"
-        log.info("⏹ Execucao #%s terminou (%s, code=%s)", exec_id, status, proc.returncode)
-        self.report_status(exec_id, status, exit_code=proc.returncode)
+        status = "successful" if proc.returncode == 0 else "faulted"
+        error_message = None if proc.returncode == 0 else "\n".join(last_lines[-5:])
+        log.info("⏹ Job #%s terminou (%s, code=%s)", exec_id, status, proc.returncode)
+        self.report_status(exec_id, status, exit_code=proc.returncode, error_message=error_message)
 
     # ─────────────────────────────────────────────────────────────────
     # Loop principal

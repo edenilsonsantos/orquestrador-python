@@ -1,2 +1,2 @@
 - [Orval response schemas](orval-codegen.md) — Orval does not always generate a per-operation response zod schema (e.g. 201 bodies); return serialized object directly instead of importing a non-existent schema.
-- [Drizzle select vs zod response](drizzle-select-vs-response-schema.md) — hand-written `.select({...})` projections must include every field the generated response zod schema requires, or the endpoint 500s at parse time (not compile time).
+- [Drizzle select vs zod response](drizzle-select-vs-response-schema.md) — hand-written `.select({...})` projections must include every field the generated response zod schema requires or the endpoint 500s at parse time (invisible to tsc); also: FOR UPDATE SKIP LOCKED can't lock the nullable side of a LEFT JOIN.

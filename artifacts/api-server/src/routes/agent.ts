@@ -2,8 +2,9 @@ import { Router, type IRouter } from "express";
 import path from "node:path";
 import fs from "node:fs";
 import { eq, and, inArray, asc } from "drizzle-orm";
-import { db, machinesTable, jobsTable, automationsTable, projectsTable, queuesTable, assetsTable } from "@workspace/db";
+import { db, machinesTable, jobsTable, automationsTable, projectsTable, queuesTable, assetsTable, logLinesTable, queueItemsTable } from "@workspace/db";
 import { GetAgentInfoResponse as AgentInfoSchema } from "@workspace/api-zod";
+import { extractBearer, authenticateAgent, requireAgent } from "../utils/agent-auth";
 
 const router: IRouter = Router();
 
@@ -440,21 +441,6 @@ Read-Host "Pressione ENTER para sair"
 
 // ─── RUNTIME ENDPOINTS USED BY agent.py ──────────────────────────────────
 
-function extractBearer(req: any): string | null {
-  const h = req.headers["authorization"] || req.headers["Authorization"];
-  if (!h || typeof h !== "string") return null;
-  const match = h.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1].trim() : null;
-}
-
-async function authenticateAgent(machineName: string, token: string | null) {
-  if (!token) return null;
-  const [m] = await db.select().from(machinesTable).where(eq(machinesTable.name, machineName));
-  if (!m) return null;
-  if (m.agentToken !== token) return null;
-  return m;
-}
-
 router.post("/agent/heartbeat", async (req, res): Promise<void> => {
   const { machine, cpuPercent, memoryPercent } = req.body ?? {};
   if (!machine || typeof machine !== "string") {
@@ -486,43 +472,53 @@ router.get("/agent/next-execution", async (req, res): Promise<void> => {
     res.status(401).json({ error: "invalid agent token" });
     return;
   }
-  const claimed = await db.transaction(async (tx) => {
+  // Claim by locking ONLY the jobs row. FOR UPDATE SKIP LOCKED cannot be applied
+  // to the nullable side of a LEFT JOIN, so we claim first, then fetch relations.
+  const claimedJob = await db.transaction(async (tx) => {
     const candidates = await tx
-      .select({ job: jobsTable, automation: automationsTable, project: projectsTable, queue: queuesTable })
+      .select()
       .from(jobsTable)
-      .leftJoin(automationsTable, eq(jobsTable.automationId, automationsTable.id))
-      .leftJoin(projectsTable, eq(jobsTable.projectId, projectsTable.id))
-      .leftJoin(queuesTable, eq(jobsTable.queueId, queuesTable.id))
       .where(eq(jobsTable.status, "pending"))
       .orderBy(asc(jobsTable.createdAt))
       .limit(1)
       .for("update", { skipLocked: true });
 
     if (candidates.length === 0) return null;
-    const c = candidates[0];
-    await tx
+    const job = candidates[0];
+    const [updated] = await tx
       .update(jobsTable)
       .set({ machineId: m.id, status: "running", startedAt: new Date() })
-      .where(eq(jobsTable.id, c.job.id));
-    return c;
+      .where(eq(jobsTable.id, job.id))
+      .returning();
+    return updated;
   });
 
-  if (!claimed) {
+  if (!claimedJob) {
     res.status(204).end();
     return;
   }
 
+  const [automation] = claimedJob.automationId
+    ? await db.select().from(automationsTable).where(eq(automationsTable.id, claimedJob.automationId))
+    : [undefined];
+  const [project] = claimedJob.projectId
+    ? await db.select().from(projectsTable).where(eq(projectsTable.id, claimedJob.projectId))
+    : [undefined];
+  const [queue] = claimedJob.queueId
+    ? await db.select().from(queuesTable).where(eq(queuesTable.id, claimedJob.queueId))
+    : [undefined];
+
   res.json({
-    id: claimed.job.id,
-    deployMethod: claimed.automation?.deployMethod ?? "zip",
-    repositoryUrl: claimed.automation?.repositoryUrl ?? null,
-    repositoryBranch: claimed.automation?.repositoryBranch ?? "main",
-    entrypoint: claimed.automation?.entrypoint ?? "main.py",
-    version: claimed.automation?.version ?? null,
-    automationName: claimed.automation?.name ?? null,
-    projectName: claimed.project?.name ?? null,
-    queueName: claimed.queue?.name ?? null,
-    inputData: claimed.job.inputData ?? null,
+    id: claimedJob.id,
+    deployMethod: automation?.deployMethod ?? "zip",
+    repositoryUrl: automation?.repositoryUrl ?? null,
+    repositoryBranch: automation?.repositoryBranch ?? "main",
+    entrypoint: automation?.entrypoint ?? "main.py",
+    version: automation?.version ?? null,
+    automationName: automation?.name ?? null,
+    projectName: project?.name ?? null,
+    queueName: queue?.name ?? null,
+    inputData: claimedJob.inputData ?? null,
   });
 });
 
@@ -546,6 +542,155 @@ router.post("/agent/assets", async (req, res): Promise<void> => {
   const out: Record<string, string> = {};
   for (const a of rows) out[a.name] = a.value;
   res.json(out);
+});
+
+// Agents append log lines for a job they are running. Machine-bound: the agent
+// can only write logs for a job assigned to its own machine.
+router.post("/agent/jobs/:id/logs", async (req, res): Promise<void> => {
+  const m = await requireAgent(req, res);
+  if (!m) return;
+  const jobId = Number(req.params.id);
+  if (!Number.isFinite(jobId)) {
+    res.status(400).json({ error: "invalid job id" });
+    return;
+  }
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
+  if (!job) {
+    res.status(404).json({ error: "job not found" });
+    return;
+  }
+  if (job.machineId !== m.id) {
+    res.status(403).json({ error: "job not assigned to this machine" });
+    return;
+  }
+  const body = req.body ?? {};
+  const content = typeof body.content === "string" ? body.content : typeof body.message === "string" ? body.message : "";
+  if (!content) {
+    res.status(400).json({ error: "log content required" });
+    return;
+  }
+  const level = typeof body.level === "string" ? body.level : "INFO";
+  const stream = typeof body.stream === "string" ? body.stream : "stdout";
+  await db.insert(logLinesTable).values({ jobId, content, level, stream });
+  res.json({ ok: true });
+});
+
+// Agents report job progress/completion. Machine-bound. Accepts job statuses
+// (running | successful | faulted | stopped) plus exitCode/outputData/errorMessage.
+const AGENT_JOB_STATUSES = ["running", "successful", "faulted", "stopped"] as const;
+router.patch("/agent/jobs/:id", async (req, res): Promise<void> => {
+  const m = await requireAgent(req, res);
+  if (!m) return;
+  const jobId = Number(req.params.id);
+  if (!Number.isFinite(jobId)) {
+    res.status(400).json({ error: "invalid job id" });
+    return;
+  }
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
+  if (!job) {
+    res.status(404).json({ error: "job not found" });
+    return;
+  }
+  if (job.machineId !== m.id) {
+    res.status(403).json({ error: "job not assigned to this machine" });
+    return;
+  }
+
+  const body = req.body ?? {};
+  const updates: Record<string, unknown> = {};
+  if (typeof body.status === "string") {
+    if (!AGENT_JOB_STATUSES.includes(body.status)) {
+      res.status(400).json({ error: `invalid status; expected one of ${AGENT_JOB_STATUSES.join(", ")}` });
+      return;
+    }
+    updates.status = body.status;
+    if (body.status === "running" && !job.startedAt) {
+      updates.startedAt = new Date();
+    }
+    if (["successful", "faulted", "stopped"].includes(body.status)) {
+      const finishedAt = new Date();
+      updates.finishedAt = finishedAt;
+      const startedAt = job.startedAt ?? finishedAt;
+      updates.durationSeconds = Math.max(0, Math.round((finishedAt.getTime() - new Date(startedAt).getTime()) / 1000));
+    }
+  }
+  if (body.exitCode !== undefined) {
+    if (body.exitCode === null) {
+      updates.exitCode = null;
+    } else {
+      const code = Number(body.exitCode);
+      if (!Number.isInteger(code)) {
+        res.status(400).json({ error: "exitCode must be an integer or null" });
+        return;
+      }
+      updates.exitCode = code;
+    }
+  }
+  if (body.outputData !== undefined) updates.outputData = body.outputData;
+  if (body.errorMessage !== undefined) updates.errorMessage = body.errorMessage;
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "no updatable fields provided" });
+    return;
+  }
+
+  const [updated] = await db.update(jobsTable).set(updates).where(eq(jobsTable.id, jobId)).returning();
+  res.json({ ok: true, id: updated.id, status: updated.status });
+});
+
+// Agents report the outcome of a claimed transaction (queue item). Machine-bound.
+// Enforces the queue retry policy: a "failed" item whose attempts have reached
+// the queue's maxRetries is automatically transitioned to "abandoned".
+router.patch("/agent/queue-items/:id", async (req, res): Promise<void> => {
+  const m = await requireAgent(req, res);
+  if (!m) return;
+  const itemId = Number(req.params.id);
+  if (!Number.isFinite(itemId)) {
+    res.status(400).json({ error: "invalid queue item id" });
+    return;
+  }
+  const [item] = await db.select().from(queueItemsTable).where(eq(queueItemsTable.id, itemId));
+  if (!item) {
+    res.status(404).json({ error: "queue item not found" });
+    return;
+  }
+  if (item.machineId !== m.id) {
+    res.status(403).json({ error: "queue item not assigned to this machine" });
+    return;
+  }
+
+  const body = req.body ?? {};
+  const status = typeof body.status === "string" ? body.status : undefined;
+  if (status !== undefined && !["successful", "failed", "abandoned"].includes(status)) {
+    res.status(400).json({ error: "invalid status; expected successful | failed | abandoned" });
+    return;
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (body.output !== undefined) updates.output = body.output;
+  if (body.exception !== undefined) updates.exception = body.exception;
+
+  if (status !== undefined) {
+    let finalStatus = status;
+    if (status === "failed") {
+      const [queue] = await db.select().from(queuesTable).where(eq(queuesTable.id, item.queueId));
+      const maxRetries = queue?.maxRetries ?? 0;
+      // attempts already counts the just-finished attempt (incremented at dequeue).
+      if (item.attempts >= maxRetries + 1) {
+        finalStatus = "abandoned";
+      }
+    }
+    updates.status = finalStatus;
+    updates.endedAt = new Date();
+  }
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "no updatable fields provided" });
+    return;
+  }
+
+  const [updated] = await db.update(queueItemsTable).set(updates).where(eq(queueItemsTable.id, itemId)).returning();
+  res.json({ ok: true, id: updated.id, status: updated.status, attempts: updated.attempts });
 });
 
 export default router;

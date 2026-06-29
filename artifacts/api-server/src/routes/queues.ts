@@ -12,7 +12,6 @@ import {
   EnqueueItemParams,
   EnqueueItemBody,
   DequeueItemParams,
-  DequeueItemBody,
   GetQueueItemParams,
   UpdateQueueItemParams,
   UpdateQueueItemBody,
@@ -25,6 +24,7 @@ import {
   DequeueItemResponse,
 } from "@workspace/api-zod";
 import { serialize } from "../utils/serialize";
+import { requireAgent } from "../utils/agent-auth";
 
 const router: IRouter = Router();
 
@@ -221,15 +221,15 @@ router.post("/queues/:id/items", async (req, res): Promise<void> => {
 });
 
 // Atomic claim of the next available transaction (FOR UPDATE SKIP LOCKED).
+// Agent-only: requires a valid machine-bound agent token. The claim is bound to
+// the authenticated machine, so the request body's machineId is ignored.
 router.post("/queues/:id/dequeue", async (req, res): Promise<void> => {
+  const machine = await requireAgent(req, res);
+  if (!machine) return;
+
   const params = DequeueItemParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const parsed = DequeueItemBody.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
     return;
   }
 
@@ -244,11 +244,13 @@ router.post("/queues/:id/dequeue", async (req, res): Promise<void> => {
 
     if (rows.length === 0) return null;
     const target = rows[0];
+    // attempts is incremented exactly once here, at claim time — this is the
+    // single source of truth for how many processing attempts an item has had.
     const [updated] = await tx
       .update(queueItemsTable)
       .set({
         status: "in_progress",
-        machineId: parsed.data.machineId ?? null,
+        machineId: machine.id,
         attempts: target.attempts + 1,
         startedAt: new Date(),
       })
@@ -304,19 +306,29 @@ router.patch("/queue-items/:id", async (req, res): Promise<void> => {
   if (parsed.data.exception !== undefined) updates.exception = parsed.data.exception;
 
   if (parsed.data.status !== undefined) {
-    updates.status = parsed.data.status;
-    if (["successful", "failed", "abandoned"].includes(parsed.data.status)) {
+    let finalStatus: string = parsed.data.status;
+    if (parsed.data.status === "failed") {
+      // Enforce the queue retry policy: once attempts reach maxRetries + 1 (the
+      // initial run plus the allowed retries), a failure becomes "abandoned".
+      const [queue] = await db.select().from(queuesTable).where(eq(queuesTable.id, existing.queueId));
+      const maxRetries = queue?.maxRetries ?? 0;
+      if (existing.attempts >= maxRetries + 1) {
+        finalStatus = "abandoned";
+      }
+    }
+    updates.status = finalStatus;
+    if (["successful", "failed", "abandoned"].includes(finalStatus)) {
       updates.endedAt = new Date();
-    } else if (parsed.data.status === "in_progress") {
+    } else if (finalStatus === "in_progress") {
       updates.startedAt = new Date();
-    } else if (parsed.data.status === "new") {
-      // Retry: re-queue and clear prior outcome.
+    } else if (finalStatus === "new") {
+      // Retry: re-queue and clear prior outcome. attempts is NOT incremented
+      // here — it is counted once per claim at dequeue time.
       updates.machineId = null;
       updates.output = null;
       updates.exception = null;
       updates.startedAt = null;
       updates.endedAt = null;
-      updates.attempts = existing.attempts + 1;
     }
   }
 
