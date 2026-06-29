@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Layers, Plus, Trash2, ScrollText } from "lucide-react";
+import { Layers, Plus, Trash2, ScrollText, Table2 } from "lucide-react";
 import { Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { format } from "date-fns";
@@ -152,10 +152,12 @@ export default function QueuesPage() {
             <Card key={queue.id} className="border border-border" data-testid={`queue-card-${queue.id}`}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-muted-foreground" />
-                    <CardTitle className="text-sm font-medium">{queue.name}</CardTitle>
-                  </div>
+                  <Link href={`/queues/${queue.id}`}>
+                    <div className="flex items-center gap-2 cursor-pointer group" data-testid={`link-queue-detail-${queue.id}`}>
+                      <Layers className="h-4 w-4 text-muted-foreground" />
+                      <CardTitle className="text-sm font-medium group-hover:text-primary group-hover:underline">{queue.name}</CardTitle>
+                    </div>
+                  </Link>
                   <Badge variant={queue.status === "active" ? "default" : "secondary"} className="text-xs">
                     {queue.status === "active" ? "Ativa" : "Pausada"}
                   </Badge>
@@ -192,7 +194,12 @@ export default function QueuesPage() {
                   <p className="text-xs font-medium text-muted-foreground mb-2">Historico de execucoes</p>
                   <QueueHistory queueId={queue.id} />
                 </div>
-                <div className="flex justify-end pt-1">
+                <div className="flex items-center justify-between pt-1">
+                  <Link href={`/queues/${queue.id}`}>
+                    <Button size="sm" variant="outline" className="text-xs gap-1" data-testid={`button-view-transactions-${queue.id}`}>
+                      <Table2 className="h-3 w-3" />Ver transacoes
+                    </Button>
+                  </Link>
                   <Button
                     size="sm"
                     variant="ghost"

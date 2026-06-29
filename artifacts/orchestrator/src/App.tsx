@@ -8,6 +8,7 @@ import Dashboard from "@/pages/dashboard";
 import MachinesPage from "@/pages/machines";
 import ProjectsPage from "@/pages/projects";
 import QueuesPage from "@/pages/queues";
+import QueueDetailPage from "@/pages/queue-detail";
 import ExecutionsPage from "@/pages/executions";
 import ExecutionDetailPage from "@/pages/execution-detail";
 import ExecutionLogsPage from "@/pages/execution-logs";
@@ -33,6 +34,7 @@ function Router() {
         <Route path="/machines" component={MachinesPage} />
         <Route path="/projects" component={ProjectsPage} />
         <Route path="/queues" component={QueuesPage} />
+        <Route path="/queues/:id" component={QueueDetailPage} />
         <Route path="/executions" component={ExecutionsPage} />
         <Route path="/executions/:id" component={ExecutionDetailPage} />
         <Route path="/execution-logs" component={ExecutionLogsPage} />
