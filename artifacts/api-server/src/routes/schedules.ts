@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, schedulesTable, queuesTable, automationsTable, machinesTable } from "@workspace/db";
+import { db, schedulesTable, queuesTable, automationsTable, machinesTable, jobsTable } from "@workspace/db";
 import {
   CreateScheduleBody,
   GetScheduleParams,
@@ -15,6 +15,7 @@ import {
 } from "@workspace/api-zod";
 import { randomUUID } from "crypto";
 import { serialize } from "../utils/serialize";
+import { createJobFromSchedule } from "../scheduler";
 
 const router: IRouter = Router();
 
@@ -122,6 +123,10 @@ router.delete("/schedules/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  await db
+    .update(jobsTable)
+    .set({ scheduleId: null })
+    .where(eq(jobsTable.scheduleId, params.data.id));
   const [schedule] = await db.delete(schedulesTable).where(eq(schedulesTable.id, params.data.id)).returning();
   if (!schedule) {
     res.status(404).json({ error: "Schedule not found" });
@@ -152,6 +157,43 @@ router.post("/schedules/:id/toggle", async (req, res): Promise<void> => {
   }
   const withQueue = await getScheduleWithQueue(updated.id);
   res.json(ToggleScheduleResponse.parse(serialize(withQueue)));
+});
+
+router.post("/schedules/webhook/:token", async (req, res): Promise<void> => {
+  const token = req.params.token;
+  if (!token) {
+    res.status(400).json({ error: "Webhook token is required" });
+    return;
+  }
+  const [schedule] = await db
+    .select()
+    .from(schedulesTable)
+    .where(eq(schedulesTable.webhookToken, token));
+  if (!schedule || schedule.triggerType !== "webhook") {
+    res.status(404).json({ error: "Webhook not found" });
+    return;
+  }
+  if (!schedule.enabled) {
+    res.status(409).json({ error: "Schedule is disabled" });
+    return;
+  }
+  if (schedule.webhookSecret) {
+    const provided = req.header("x-webhook-secret");
+    if (provided !== schedule.webhookSecret) {
+      res.status(401).json({ error: "Invalid webhook secret" });
+      return;
+    }
+  }
+  const jobId = await createJobFromSchedule(schedule);
+  if (!jobId) {
+    res.status(409).json({ error: "Schedule has no automation linked" });
+    return;
+  }
+  await db
+    .update(schedulesTable)
+    .set({ lastTriggeredAt: new Date() })
+    .where(eq(schedulesTable.id, schedule.id));
+  res.status(201).json({ jobId });
 });
 
 export default router;

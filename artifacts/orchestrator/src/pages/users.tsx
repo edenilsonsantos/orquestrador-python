@@ -116,8 +116,8 @@ export default function UsersPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <RoleBadge role={user.role} />
-                    <Badge variant={user.isActive ? "default" : "secondary"} className="text-xs">
-                      {user.isActive ? "Ativo" : "Inativo"}
+                    <Badge variant={user.active ? "default" : "secondary"} className="text-xs">
+                      {user.active ? "Ativo" : "Inativo"}
                     </Badge>
                     <Button
                       size="sm"

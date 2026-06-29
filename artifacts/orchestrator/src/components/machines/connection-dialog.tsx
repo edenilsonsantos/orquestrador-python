@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useGetMachine } from "@workspace/api-client-react";
+import { useGetMachine, getGetMachineQueryKey } from "@workspace/api-client-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,7 +49,10 @@ interface Props {
 
 export function MachineConnectionDialog({ machineId, open, onOpenChange }: Props) {
   const { data: machine, isLoading } = useGetMachine(machineId ?? 0, {
-    query: { enabled: open && machineId != null },
+    query: {
+      enabled: open && machineId != null,
+      queryKey: getGetMachineQueryKey(machineId ?? 0),
+    },
   });
 
   const orchUrl = `${window.location.protocol}//${window.location.host}`;
