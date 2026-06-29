@@ -159,6 +159,9 @@ router.post("/schedules/:id/toggle", async (req, res): Promise<void> => {
   res.json(ToggleScheduleResponse.parse(serialize(withQueue)));
 });
 
+// Public, external-facing webhook trigger. Intentionally outside openapi.yaml /
+// Orval codegen — it is called by third-party systems via the opaque webhook
+// token, not by the typed TS client.
 router.post("/schedules/webhook/:token", async (req, res): Promise<void> => {
   const token = req.params.token;
   if (!token) {

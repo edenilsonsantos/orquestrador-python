@@ -1,7 +1,12 @@
+// NOTE: The /agent/* routes are the machine-to-server runtime protocol consumed
+// by the Python agent (agent.py), not by the typed TS client. They are
+// intentionally NOT part of openapi.yaml / Orval codegen: callers are agents
+// authenticating with machine-bound bearer tokens, so there is no generated
+// client contract to keep in sync.
 import { Router, type IRouter } from "express";
 import path from "node:path";
 import fs from "node:fs";
-import { eq, and, inArray, asc } from "drizzle-orm";
+import { eq, and, or, isNull, inArray, asc } from "drizzle-orm";
 import { db, machinesTable, jobsTable, automationsTable, projectsTable, queuesTable, assetsTable, logLinesTable, queueItemsTable } from "@workspace/db";
 import { GetAgentInfoResponse as AgentInfoSchema } from "@workspace/api-zod";
 import { extractBearer, authenticateAgent, requireAgent } from "../utils/agent-auth";
@@ -475,19 +480,28 @@ router.get("/agent/next-execution", async (req, res): Promise<void> => {
   // Claim by locking ONLY the jobs row. FOR UPDATE SKIP LOCKED cannot be applied
   // to the nullable side of a LEFT JOIN, so we claim first, then fetch relations.
   const claimedJob = await db.transaction(async (tx) => {
+    // Respect machine affinity: only claim jobs that are unassigned or pinned
+    // to this machine. Never steal a job pinned to another machine.
     const candidates = await tx
       .select()
       .from(jobsTable)
-      .where(eq(jobsTable.status, "pending"))
+      .where(
+        and(
+          eq(jobsTable.status, "pending"),
+          or(isNull(jobsTable.machineId), eq(jobsTable.machineId, m.id)),
+        ),
+      )
       .orderBy(asc(jobsTable.createdAt))
       .limit(1)
       .for("update", { skipLocked: true });
 
     if (candidates.length === 0) return null;
     const job = candidates[0];
+    // Preserve a pre-assigned machineId (manual run / schedule targetMachine);
+    // only bind to this machine when the job was unassigned.
     const [updated] = await tx
       .update(jobsTable)
-      .set({ machineId: m.id, status: "running", startedAt: new Date() })
+      .set({ machineId: job.machineId ?? m.id, status: "running", startedAt: new Date() })
       .where(eq(jobsTable.id, job.id))
       .returning();
     return updated;
