@@ -143,11 +143,7 @@ export const ListProjectsResponseItem = zod.object({
   name: zod.string(),
   description: zod.string().nullish(),
   category: zod.string().describe("rpa | backend"),
-  deployMethod: zod.string().describe("zip | git"),
-  repositoryUrl: zod.string().nullish(),
-  repositoryBranch: zod.string().nullish(),
-  activeVersion: zod.string().nullish(),
-  status: zod.string().describe("active | inactive | deploying"),
+  status: zod.string().describe("active | inactive"),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -160,9 +156,6 @@ export const CreateProjectBody = zod.object({
   name: zod.string(),
   description: zod.string().optional(),
   category: zod.string(),
-  deployMethod: zod.string(),
-  repositoryUrl: zod.string().optional(),
-  repositoryBranch: zod.string().optional(),
 });
 
 /**
@@ -177,11 +170,7 @@ export const GetProjectResponse = zod.object({
   name: zod.string(),
   description: zod.string().nullish(),
   category: zod.string().describe("rpa | backend"),
-  deployMethod: zod.string().describe("zip | git"),
-  repositoryUrl: zod.string().nullish(),
-  repositoryBranch: zod.string().nullish(),
-  activeVersion: zod.string().nullish(),
-  status: zod.string().describe("active | inactive | deploying"),
+  status: zod.string().describe("active | inactive"),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -197,9 +186,6 @@ export const UpdateProjectBody = zod.object({
   name: zod.string().optional(),
   description: zod.string().optional(),
   category: zod.string().optional(),
-  deployMethod: zod.string().optional(),
-  repositoryUrl: zod.string().optional(),
-  repositoryBranch: zod.string().optional(),
   status: zod.string().optional(),
 });
 
@@ -208,11 +194,7 @@ export const UpdateProjectResponse = zod.object({
   name: zod.string(),
   description: zod.string().nullish(),
   category: zod.string().describe("rpa | backend"),
-  deployMethod: zod.string().describe("zip | git"),
-  repositoryUrl: zod.string().nullish(),
-  repositoryBranch: zod.string().nullish(),
-  activeVersion: zod.string().nullish(),
-  status: zod.string().describe("active | inactive | deploying"),
+  status: zod.string().describe("active | inactive"),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -222,6 +204,135 @@ export const UpdateProjectResponse = zod.object({
  */
 export const DeleteProjectParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary List automations (optionally filtered by project)
+ */
+export const ListAutomationsQueryParams = zod.object({
+  projectId: zod.coerce.number().nullish(),
+});
+
+export const ListAutomationsResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  version: zod.string(),
+  entrypoint: zod.string(),
+  deployMethod: zod.string().describe("zip | git"),
+  repositoryUrl: zod.string().nullish(),
+  repositoryBranch: zod.string().nullish(),
+  inputParams: zod.record(zod.string(), zod.unknown()).nullish(),
+  outputParams: zod.record(zod.string(), zod.unknown()).nullish(),
+  active: zod.boolean(),
+  status: zod.string().describe("active | inactive"),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+  projectName: zod.string().nullish(),
+});
+export const ListAutomationsResponse = zod.array(ListAutomationsResponseItem);
+
+/**
+ * @summary Create a new automation
+ */
+export const CreateAutomationBody = zod.object({
+  projectId: zod.number(),
+  name: zod.string(),
+  description: zod.string().optional(),
+  version: zod.string().optional(),
+  entrypoint: zod.string().optional(),
+  deployMethod: zod.string().optional(),
+  repositoryUrl: zod.string().optional(),
+  repositoryBranch: zod.string().optional(),
+  inputParams: zod.record(zod.string(), zod.unknown()).optional(),
+  outputParams: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+/**
+ * @summary Get automation by ID
+ */
+export const GetAutomationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAutomationResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  version: zod.string(),
+  entrypoint: zod.string(),
+  deployMethod: zod.string().describe("zip | git"),
+  repositoryUrl: zod.string().nullish(),
+  repositoryBranch: zod.string().nullish(),
+  inputParams: zod.record(zod.string(), zod.unknown()).nullish(),
+  outputParams: zod.record(zod.string(), zod.unknown()).nullish(),
+  active: zod.boolean(),
+  status: zod.string().describe("active | inactive"),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+  projectName: zod.string().nullish(),
+});
+
+/**
+ * @summary Update an automation
+ */
+export const UpdateAutomationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAutomationBody = zod.object({
+  name: zod.string().optional(),
+  description: zod.string().optional(),
+  version: zod.string().optional(),
+  entrypoint: zod.string().optional(),
+  deployMethod: zod.string().optional(),
+  repositoryUrl: zod.string().optional(),
+  repositoryBranch: zod.string().optional(),
+  inputParams: zod.record(zod.string(), zod.unknown()).optional(),
+  outputParams: zod.record(zod.string(), zod.unknown()).optional(),
+  active: zod.boolean().optional(),
+  status: zod.string().optional(),
+});
+
+export const UpdateAutomationResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  version: zod.string(),
+  entrypoint: zod.string(),
+  deployMethod: zod.string().describe("zip | git"),
+  repositoryUrl: zod.string().nullish(),
+  repositoryBranch: zod.string().nullish(),
+  inputParams: zod.record(zod.string(), zod.unknown()).nullish(),
+  outputParams: zod.record(zod.string(), zod.unknown()).nullish(),
+  active: zod.boolean(),
+  status: zod.string().describe("active | inactive"),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+  projectName: zod.string().nullish(),
+});
+
+/**
+ * @summary Delete an automation
+ */
+export const DeleteAutomationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Start a manual job for an automation
+ */
+export const RunAutomationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RunAutomationBody = zod.object({
+  machineId: zod.number().nullish(),
+  queueId: zod.number().nullish(),
+  inputData: zod.string().nullish(),
 });
 
 /**
@@ -327,69 +438,182 @@ export const DeleteQueueParams = zod.object({
 });
 
 /**
- * @summary List items in a queue
+ * @summary List transactions (items) in a queue
  */
 export const ListQueueItemsParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const ListQueueItemsQueryParams = zod.object({
+  status: zod.coerce.string().nullish(),
+});
+
 export const ListQueueItemsResponseItem = zod.object({
   id: zod.number(),
   queueId: zod.number(),
-  projectId: zod.number(),
-  machineId: zod.number().nullish(),
+  reference: zod.string().nullish(),
+  data: zod.string().nullish(),
+  priority: zod.string().describe("high | normal | low"),
   status: zod
     .string()
-    .describe("pending | running | completed | error | stopped"),
-  attempt: zod.number(),
-  inputData: zod.string().nullish(),
-  exitCode: zod.number().nullish(),
-  errorMessage: zod.string().nullish(),
+    .describe("new | in_progress | successful | failed | abandoned"),
+  attempts: zod.number(),
+  machineId: zod.number().nullish(),
+  jobId: zod.number().nullish(),
+  output: zod.string().nullish(),
+  exception: zod.string().nullish(),
+  deadline: zod.string().nullish(),
   startedAt: zod.string().nullish(),
-  finishedAt: zod.string().nullish(),
-  durationSeconds: zod.number().nullish(),
+  endedAt: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
-  projectName: zod.string().nullish(),
   queueName: zod.string().nullish(),
   machineName: zod.string().nullish(),
 });
 export const ListQueueItemsResponse = zod.array(ListQueueItemsResponseItem);
 
 /**
- * @summary Add an item to the queue
+ * @summary Add a transaction to the queue
  */
-export const AddQueueItemParams = zod.object({
+export const EnqueueItemParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const AddQueueItemBody = zod.object({
-  machineId: zod.number().nullish(),
-  inputData: zod.string().nullish(),
+export const EnqueueItemBody = zod.object({
+  reference: zod.string().optional(),
+  data: zod.string().optional(),
+  priority: zod.string().optional(),
+  deadline: zod.string().optional(),
 });
 
 /**
- * @summary List executions
+ * @summary Atomically claim the next available transaction
  */
-export const listExecutionsQueryLimitDefault = 50;
+export const DequeueItemParams = zod.object({
+  id: zod.coerce.number(),
+});
 
-export const ListExecutionsQueryParams = zod.object({
+export const DequeueItemBody = zod.object({
+  machineId: zod.number().nullish(),
+});
+
+export const DequeueItemResponse = zod.object({
+  id: zod.number(),
+  queueId: zod.number(),
+  reference: zod.string().nullish(),
+  data: zod.string().nullish(),
+  priority: zod.string().describe("high | normal | low"),
+  status: zod
+    .string()
+    .describe("new | in_progress | successful | failed | abandoned"),
+  attempts: zod.number(),
+  machineId: zod.number().nullish(),
+  jobId: zod.number().nullish(),
+  output: zod.string().nullish(),
+  exception: zod.string().nullish(),
+  deadline: zod.string().nullish(),
+  startedAt: zod.string().nullish(),
+  endedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+  queueName: zod.string().nullish(),
+  machineName: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a transaction by ID
+ */
+export const GetQueueItemParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetQueueItemResponse = zod.object({
+  id: zod.number(),
+  queueId: zod.number(),
+  reference: zod.string().nullish(),
+  data: zod.string().nullish(),
+  priority: zod.string().describe("high | normal | low"),
+  status: zod
+    .string()
+    .describe("new | in_progress | successful | failed | abandoned"),
+  attempts: zod.number(),
+  machineId: zod.number().nullish(),
+  jobId: zod.number().nullish(),
+  output: zod.string().nullish(),
+  exception: zod.string().nullish(),
+  deadline: zod.string().nullish(),
+  startedAt: zod.string().nullish(),
+  endedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+  queueName: zod.string().nullish(),
+  machineName: zod.string().nullish(),
+});
+
+/**
+ * @summary Update transaction status (complete, fail, retry, abandon)
+ */
+export const UpdateQueueItemParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateQueueItemBody = zod.object({
+  status: zod.string().optional(),
+  output: zod.string().optional(),
+  exception: zod.string().optional(),
+  priority: zod.string().optional(),
+  data: zod.string().optional(),
+});
+
+export const UpdateQueueItemResponse = zod.object({
+  id: zod.number(),
+  queueId: zod.number(),
+  reference: zod.string().nullish(),
+  data: zod.string().nullish(),
+  priority: zod.string().describe("high | normal | low"),
+  status: zod
+    .string()
+    .describe("new | in_progress | successful | failed | abandoned"),
+  attempts: zod.number(),
+  machineId: zod.number().nullish(),
+  jobId: zod.number().nullish(),
+  output: zod.string().nullish(),
+  exception: zod.string().nullish(),
+  deadline: zod.string().nullish(),
+  startedAt: zod.string().nullish(),
+  endedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+  queueName: zod.string().nullish(),
+  machineName: zod.string().nullish(),
+});
+
+/**
+ * @summary List jobs
+ */
+export const listJobsQueryLimitDefault = 50;
+
+export const ListJobsQueryParams = zod.object({
   status: zod.coerce.string().optional(),
   projectId: zod.coerce.number().nullish(),
+  automationId: zod.coerce.number().nullish(),
   machineId: zod.coerce.number().nullish(),
-  limit: zod.coerce.number().default(listExecutionsQueryLimitDefault),
+  limit: zod.coerce.number().default(listJobsQueryLimitDefault),
 });
 
-export const ListExecutionsResponseItem = zod.object({
+export const ListJobsResponseItem = zod.object({
   id: zod.number(),
-  queueId: zod.number(),
+  automationId: zod.number().nullish(),
   projectId: zod.number(),
+  queueId: zod.number().nullish(),
   machineId: zod.number().nullish(),
+  scheduleId: zod.number().nullish(),
   status: zod
     .string()
-    .describe("pending | running | completed | error | stopped"),
+    .describe("pending | running | successful | faulted | stopped | skipped"),
   attempt: zod.number(),
   inputData: zod.string().nullish(),
+  outputData: zod.string().nullish(),
   exitCode: zod.number().nullish(),
   errorMessage: zod.string().nullish(),
   startedAt: zod.string().nullish(),
@@ -398,28 +622,32 @@ export const ListExecutionsResponseItem = zod.object({
   createdAt: zod.string(),
   updatedAt: zod.string(),
   projectName: zod.string().nullish(),
+  automationName: zod.string().nullish(),
   queueName: zod.string().nullish(),
   machineName: zod.string().nullish(),
 });
-export const ListExecutionsResponse = zod.array(ListExecutionsResponseItem);
+export const ListJobsResponse = zod.array(ListJobsResponseItem);
 
 /**
- * @summary Get execution details
+ * @summary Get job details
  */
-export const GetExecutionParams = zod.object({
+export const GetJobParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const GetExecutionResponse = zod.object({
+export const GetJobResponse = zod.object({
   id: zod.number(),
-  queueId: zod.number(),
+  automationId: zod.number().nullish(),
   projectId: zod.number(),
+  queueId: zod.number().nullish(),
   machineId: zod.number().nullish(),
+  scheduleId: zod.number().nullish(),
   status: zod
     .string()
-    .describe("pending | running | completed | error | stopped"),
+    .describe("pending | running | successful | faulted | stopped | skipped"),
   attempt: zod.number(),
   inputData: zod.string().nullish(),
+  outputData: zod.string().nullish(),
   exitCode: zod.number().nullish(),
   errorMessage: zod.string().nullish(),
   startedAt: zod.string().nullish(),
@@ -428,50 +656,55 @@ export const GetExecutionResponse = zod.object({
   createdAt: zod.string(),
   updatedAt: zod.string(),
   projectName: zod.string().nullish(),
+  automationName: zod.string().nullish(),
   queueName: zod.string().nullish(),
   machineName: zod.string().nullish(),
 });
 
 /**
- * @summary Get execution logs
+ * @summary Get job logs
  */
-export const GetExecutionLogsParams = zod.object({
+export const GetJobLogsParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const GetExecutionLogsResponseItem = zod.object({
+export const GetJobLogsResponseItem = zod.object({
   id: zod.number(),
-  executionId: zod.number(),
+  jobId: zod.number(),
   stream: zod.string().describe("stdout | stderr"),
+  level: zod.string().describe("DEBUG | INFO | WARNING | ERROR"),
   content: zod.string(),
   timestamp: zod.string(),
 });
-export const GetExecutionLogsResponse = zod.array(GetExecutionLogsResponseItem);
+export const GetJobLogsResponse = zod.array(GetJobLogsResponseItem);
 
 /**
- * @summary Retry a failed execution
+ * @summary Retry a failed job
  */
-export const RetryExecutionParams = zod.object({
+export const RetryJobParams = zod.object({
   id: zod.coerce.number(),
 });
 
 /**
- * @summary Stop a running execution
+ * @summary Stop a running job
  */
-export const StopExecutionParams = zod.object({
+export const StopJobParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const StopExecutionResponse = zod.object({
+export const StopJobResponse = zod.object({
   id: zod.number(),
-  queueId: zod.number(),
+  automationId: zod.number().nullish(),
   projectId: zod.number(),
+  queueId: zod.number().nullish(),
   machineId: zod.number().nullish(),
+  scheduleId: zod.number().nullish(),
   status: zod
     .string()
-    .describe("pending | running | completed | error | stopped"),
+    .describe("pending | running | successful | faulted | stopped | skipped"),
   attempt: zod.number(),
   inputData: zod.string().nullish(),
+  outputData: zod.string().nullish(),
   exitCode: zod.number().nullish(),
   errorMessage: zod.string().nullish(),
   startedAt: zod.string().nullish(),
@@ -480,43 +713,56 @@ export const StopExecutionResponse = zod.object({
   createdAt: zod.string(),
   updatedAt: zod.string(),
   projectName: zod.string().nullish(),
+  automationName: zod.string().nullish(),
   queueName: zod.string().nullish(),
   machineName: zod.string().nullish(),
 });
 
 /**
- * @summary List all schedules
+ * @summary List all triggers
  */
 export const ListSchedulesResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
-  queueId: zod.number(),
-  triggerType: zod.string().describe("cron | interval | webhook"),
+  automationId: zod.number().nullish(),
+  queueId: zod.number().nullish(),
+  targetMachineId: zod.number().nullish(),
+  triggerType: zod.string().describe("cron | interval | queue | webhook"),
   cronExpression: zod.string().nullish(),
   intervalMinutes: zod.number().nullish(),
   webhookToken: zod.string().nullish(),
+  minItemsToTrigger: zod.number(),
+  maxConcurrentAgents: zod.number(),
+  itemsPerAgent: zod.number(),
   enabled: zod.boolean(),
   lastTriggeredAt: zod.string().nullish(),
   nextRunAt: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
+  automationName: zod.string().nullish(),
   queueName: zod.string().nullish(),
+  targetMachineName: zod.string().nullish(),
 });
 export const ListSchedulesResponse = zod.array(ListSchedulesResponseItem);
 
 /**
- * @summary Create a new schedule
+ * @summary Create a new trigger
  */
 export const CreateScheduleBody = zod.object({
   name: zod.string(),
-  queueId: zod.number(),
+  automationId: zod.number().optional(),
+  queueId: zod.number().optional(),
+  targetMachineId: zod.number().optional(),
   triggerType: zod.string(),
   cronExpression: zod.string().optional(),
   intervalMinutes: zod.number().optional(),
+  minItemsToTrigger: zod.number().optional(),
+  maxConcurrentAgents: zod.number().optional(),
+  itemsPerAgent: zod.number().optional(),
 });
 
 /**
- * @summary Get schedule by ID
+ * @summary Get trigger by ID
  */
 export const GetScheduleParams = zod.object({
   id: zod.coerce.number(),
@@ -525,21 +771,28 @@ export const GetScheduleParams = zod.object({
 export const GetScheduleResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
-  queueId: zod.number(),
-  triggerType: zod.string().describe("cron | interval | webhook"),
+  automationId: zod.number().nullish(),
+  queueId: zod.number().nullish(),
+  targetMachineId: zod.number().nullish(),
+  triggerType: zod.string().describe("cron | interval | queue | webhook"),
   cronExpression: zod.string().nullish(),
   intervalMinutes: zod.number().nullish(),
   webhookToken: zod.string().nullish(),
+  minItemsToTrigger: zod.number(),
+  maxConcurrentAgents: zod.number(),
+  itemsPerAgent: zod.number(),
   enabled: zod.boolean(),
   lastTriggeredAt: zod.string().nullish(),
   nextRunAt: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
+  automationName: zod.string().nullish(),
   queueName: zod.string().nullish(),
+  targetMachineName: zod.string().nullish(),
 });
 
 /**
- * @summary Update a schedule
+ * @summary Update a trigger
  */
 export const UpdateScheduleParams = zod.object({
   id: zod.coerce.number(),
@@ -547,36 +800,50 @@ export const UpdateScheduleParams = zod.object({
 
 export const UpdateScheduleBody = zod.object({
   name: zod.string().optional(),
+  automationId: zod.number().optional(),
+  queueId: zod.number().optional(),
+  targetMachineId: zod.number().optional(),
+  triggerType: zod.string().optional(),
   cronExpression: zod.string().optional(),
   intervalMinutes: zod.number().optional(),
+  minItemsToTrigger: zod.number().optional(),
+  maxConcurrentAgents: zod.number().optional(),
+  itemsPerAgent: zod.number().optional(),
   enabled: zod.boolean().optional(),
 });
 
 export const UpdateScheduleResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
-  queueId: zod.number(),
-  triggerType: zod.string().describe("cron | interval | webhook"),
+  automationId: zod.number().nullish(),
+  queueId: zod.number().nullish(),
+  targetMachineId: zod.number().nullish(),
+  triggerType: zod.string().describe("cron | interval | queue | webhook"),
   cronExpression: zod.string().nullish(),
   intervalMinutes: zod.number().nullish(),
   webhookToken: zod.string().nullish(),
+  minItemsToTrigger: zod.number(),
+  maxConcurrentAgents: zod.number(),
+  itemsPerAgent: zod.number(),
   enabled: zod.boolean(),
   lastTriggeredAt: zod.string().nullish(),
   nextRunAt: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
+  automationName: zod.string().nullish(),
   queueName: zod.string().nullish(),
+  targetMachineName: zod.string().nullish(),
 });
 
 /**
- * @summary Delete a schedule
+ * @summary Delete a trigger
  */
 export const DeleteScheduleParams = zod.object({
   id: zod.coerce.number(),
 });
 
 /**
- * @summary Enable or disable a schedule
+ * @summary Enable or disable a trigger
  */
 export const ToggleScheduleParams = zod.object({
   id: zod.coerce.number(),
@@ -589,17 +856,24 @@ export const ToggleScheduleBody = zod.object({
 export const ToggleScheduleResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
-  queueId: zod.number(),
-  triggerType: zod.string().describe("cron | interval | webhook"),
+  automationId: zod.number().nullish(),
+  queueId: zod.number().nullish(),
+  targetMachineId: zod.number().nullish(),
+  triggerType: zod.string().describe("cron | interval | queue | webhook"),
   cronExpression: zod.string().nullish(),
   intervalMinutes: zod.number().nullish(),
   webhookToken: zod.string().nullish(),
+  minItemsToTrigger: zod.number(),
+  maxConcurrentAgents: zod.number(),
+  itemsPerAgent: zod.number(),
   enabled: zod.boolean(),
   lastTriggeredAt: zod.string().nullish(),
   nextRunAt: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
+  automationName: zod.string().nullish(),
   queueName: zod.string().nullish(),
+  targetMachineName: zod.string().nullish(),
 });
 
 /**
@@ -750,30 +1024,29 @@ export const GetAgentInfoResponse = zod.object({
  * @summary Get dashboard summary metrics
  */
 export const GetDashboardSummaryResponse = zod.object({
-  executionsToday: zod.number(),
-  executionsRunning: zod.number(),
+  jobsToday: zod.number(),
+  jobsRunning: zod.number(),
   successRate: zod.number(),
   machinesOnline: zod.number(),
   machinesTotal: zod.number(),
   queuesActive: zod.number(),
   queuesPaused: zod.number(),
   projectsTotal: zod.number(),
+  automationsTotal: zod.number(),
   errorsToday: zod.number(),
   pendingItems: zod.number(),
 });
 
 /**
- * @summary Execution stats over the last 7 days
+ * @summary Job stats over the last 7 days
  */
-export const GetExecutionStatsResponseItem = zod.object({
+export const GetJobStatsResponseItem = zod.object({
   date: zod.string(),
   completed: zod.number(),
   errors: zod.number(),
   total: zod.number(),
 });
-export const GetExecutionStatsResponse = zod.array(
-  GetExecutionStatsResponseItem,
-);
+export const GetJobStatsResponse = zod.array(GetJobStatsResponseItem);
 
 /**
  * @summary Health status of all queues
@@ -790,18 +1063,21 @@ export const GetQueueHealthResponseItem = zod.object({
 export const GetQueueHealthResponse = zod.array(GetQueueHealthResponseItem);
 
 /**
- * @summary Recent executions across all queues
+ * @summary Recent jobs across all queues
  */
-export const GetRecentExecutionsResponseItem = zod.object({
+export const GetRecentJobsResponseItem = zod.object({
   id: zod.number(),
-  queueId: zod.number(),
+  automationId: zod.number().nullish(),
   projectId: zod.number(),
+  queueId: zod.number().nullish(),
   machineId: zod.number().nullish(),
+  scheduleId: zod.number().nullish(),
   status: zod
     .string()
-    .describe("pending | running | completed | error | stopped"),
+    .describe("pending | running | successful | faulted | stopped | skipped"),
   attempt: zod.number(),
   inputData: zod.string().nullish(),
+  outputData: zod.string().nullish(),
   exitCode: zod.number().nullish(),
   errorMessage: zod.string().nullish(),
   startedAt: zod.string().nullish(),
@@ -810,12 +1086,11 @@ export const GetRecentExecutionsResponseItem = zod.object({
   createdAt: zod.string(),
   updatedAt: zod.string(),
   projectName: zod.string().nullish(),
+  automationName: zod.string().nullish(),
   queueName: zod.string().nullish(),
   machineName: zod.string().nullish(),
 });
-export const GetRecentExecutionsResponse = zod.array(
-  GetRecentExecutionsResponseItem,
-);
+export const GetRecentJobsResponse = zod.array(GetRecentJobsResponseItem);
 
 /**
  * @summary List execution logs (optionally filtered by execution)

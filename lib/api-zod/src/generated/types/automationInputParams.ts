@@ -6,9 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateProjectBody {
-  name?: string;
-  description?: string;
-  category?: string;
-  status?: string;
-}
+/**
+ * @nullable
+ */
+export type AutomationInputParams = { [key: string]: unknown } | null;

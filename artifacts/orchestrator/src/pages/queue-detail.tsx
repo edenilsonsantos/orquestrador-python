@@ -3,11 +3,9 @@ import { useParams, Link } from "wouter";
 import {
   useGetQueue,
   useListQueueItems,
-  useListMachines,
-  useAddQueueItem,
-  useListExecutionLogs,
+  useEnqueueItem,
+  useUpdateQueueItem,
   getListQueueItemsQueryKey,
-  getListExecutionLogsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -27,44 +25,36 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronRight, Search, Download, Plus, MoreVertical, Info, ScrollText, ExternalLink, RotateCw } from "lucide-react";
+import { ChevronRight, Search, Download, Plus, MoreVertical, Info, ScrollText, ExternalLink, RotateCw, RotateCcw, Ban } from "lucide-react";
 import { format } from "date-fns";
-
-type QueueItem = {
-  id: number;
-  queueId: number;
-  projectId: number;
-  machineId?: number | null;
-  status: string;
-  attempt: number;
-  inputData?: string | null;
-  exitCode?: number | null;
-  errorMessage?: string | null;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  durationSeconds?: number | null;
-  createdAt: string;
-  updatedAt: string;
-  machineName?: string | null;
-};
+import type { QueueItem } from "@workspace/api-client-react";
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; className: string }> = {
-    completed: { label: "Concluido", className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
-    running: { label: "Executando", className: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
-    pending: { label: "Pendente", className: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" },
-    error: { label: "Erro", className: "bg-red-500/20 text-red-400 border-red-500/30" },
-    stopped: { label: "Parado", className: "bg-gray-500/20 text-gray-400 border-gray-500/30" },
+    successful: { label: "Sucesso", className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+    in_progress: { label: "Em progresso", className: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+    new: { label: "Novo", className: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" },
+    failed: { label: "Falhou", className: "bg-red-500/20 text-red-400 border-red-500/30" },
+    abandoned: { label: "Abandonado", className: "bg-gray-500/20 text-gray-400 border-gray-500/30" },
   };
   const s = map[status] ?? { label: status, className: "bg-gray-500/20 text-gray-400" };
   return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border font-medium ${s.className}`}>{s.label}</span>;
+}
+
+function PriorityBadge({ priority }: { priority: string }) {
+  const map: Record<string, string> = {
+    high: "Alta",
+    normal: "Normal",
+    low: "Baixa",
+  };
+  return <span className="text-muted-foreground">{map[priority] ?? priority}</span>;
 }
 
 function fmt(d?: string | null) {
   return d ? format(new Date(d), "dd/MM/yyyy HH:mm:ss") : "—";
 }
 
-function parseSpecificData(raw?: string | null): Record<string, unknown> | null {
+function parseData(raw?: string | null): Record<string, unknown> | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
@@ -84,71 +74,85 @@ export default function QueueDetailPage() {
 
   const { data: queue, isLoading: queueLoading } = useGetQueue(queueId);
   const { data: items, isLoading: itemsLoading } = useListQueueItems(queueId);
-  const { data: machines } = useListMachines();
-  const addItem = useAddQueueItem();
+  const enqueue = useEnqueueItem();
+  const updateItem = useUpdateQueueItem();
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
+  const [reference, setReference] = useState("");
+  const [priority, setPriority] = useState("normal");
   const [specificData, setSpecificData] = useState("");
-  const [machineId, setMachineId] = useState<string>("");
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [selected, setSelected] = useState<QueueItem | null>(null);
 
-  const machineNameById = useMemo(() => {
-    const m = new Map<number, string>();
-    for (const machine of (machines ?? []) as any[]) m.set(machine.id, machine.name);
-    return m;
-  }, [machines]);
-
   const rows = useMemo(() => {
-    const all = [...((items ?? []) as QueueItem[])]
-      .map((r) => ({ ...r, machineName: r.machineName ?? (r.machineId != null ? machineNameById.get(r.machineId) ?? null : null) }))
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const all = [...((items ?? []) as QueueItem[])].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
     const q = search.trim().toLowerCase();
     if (!q) return all;
     return all.filter(
       (r) =>
         String(r.id).includes(q) ||
+        (r.reference ?? "").toLowerCase().includes(q) ||
         r.status.toLowerCase().includes(q) ||
         (r.machineName ?? "").toLowerCase().includes(q) ||
-        (r.errorMessage ?? "").toLowerCase().includes(q),
+        (r.exception ?? "").toLowerCase().includes(q),
     );
-  }, [items, search, machineNameById]);
+  }, [items, search]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
+  function invalidate() {
+    qc.invalidateQueries({ queryKey: getListQueueItemsQueryKey(queueId) });
+  }
+
   function handleAdd() {
     setJsonError(null);
-    let inputData: string | undefined;
+    let data: string | undefined;
     if (specificData.trim()) {
       try {
-        const parsed = JSON.parse(specificData);
-        inputData = JSON.stringify(parsed);
+        data = JSON.stringify(JSON.parse(specificData));
       } catch {
         setJsonError("JSON invalido. Verifique a sintaxe.");
         return;
       }
     }
-    addItem.mutate(
+    enqueue.mutate(
       {
         id: queueId,
         data: {
-          machineId: machineId ? Number(machineId) : null,
-          inputData: inputData ?? null,
+          reference: reference.trim() || undefined,
+          priority,
+          data,
         },
       },
       {
         onSuccess: () => {
-          qc.invalidateQueries({ queryKey: getListQueueItemsQueryKey(queueId) });
+          invalidate();
           setAddOpen(false);
+          setReference("");
+          setPriority("normal");
           setSpecificData("");
-          setMachineId("");
-          toast({ title: "Item adicionado", description: "Transacao enviada para a fila." });
+          toast({ title: "Transacao adicionada", description: "Item enviado para a fila." });
         },
         onError: (e: any) => toast({ title: "Erro", description: e?.message ?? "Falha ao adicionar item", variant: "destructive" }),
+      },
+    );
+  }
+
+  function handleUpdate(id: number, status: string) {
+    updateItem.mutate(
+      { id, data: { status } },
+      {
+        onSuccess: () => {
+          invalidate();
+          toast({ title: "Transacao atualizada", description: status === "new" ? "Reenfileirada." : "Abandonada." });
+        },
+        onError: (e: any) => toast({ title: "Erro", description: e?.message ?? "Falha ao atualizar", variant: "destructive" }),
       },
     );
   }
@@ -156,13 +160,13 @@ export default function QueueDetailPage() {
   function exportCsv() {
     const header = ["Reference", "Status", "Prioridade", "Iniciado", "Finalizado", "Robo", "Excecao", "Criado"];
     const lines = rows.map((r) => [
-      r.id,
+      r.reference ?? r.id,
       r.status,
-      queue?.priority ?? "",
+      r.priority,
       fmt(r.startedAt),
-      fmt(r.finishedAt),
+      fmt(r.endedAt),
       r.machineName ?? "",
-      (r.errorMessage ?? "").replace(/"/g, '""'),
+      (r.exception ?? "").replace(/"/g, '""'),
       fmt(r.createdAt),
     ]);
     const csv = [header, ...lines]
@@ -179,7 +183,6 @@ export default function QueueDetailPage() {
 
   return (
     <div className="space-y-4" data-testid="queue-detail-page">
-      {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <Link href="/queues"><span className="hover:text-foreground cursor-pointer">Filas</span></Link>
         <ChevronRight className="h-3.5 w-3.5" />
@@ -188,7 +191,6 @@ export default function QueueDetailPage() {
         </span>
       </div>
 
-      {/* Toolbar */}
       <div className="flex items-center justify-between gap-3">
         <div className="relative w-72 max-w-full">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -201,7 +203,7 @@ export default function QueueDetailPage() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => qc.invalidateQueries({ queryKey: getListQueueItemsQueryKey(queueId) })} data-testid="button-refresh-transactions">
+          <Button variant="outline" size="sm" onClick={invalidate} data-testid="button-refresh-transactions">
             <RotateCw className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="sm" onClick={exportCsv} data-testid="button-export-transactions">
@@ -214,16 +216,22 @@ export default function QueueDetailPage() {
             <DialogContent className="max-w-lg">
               <DialogHeader><DialogTitle>Nova Transacao</DialogTitle></DialogHeader>
               <div className="space-y-4">
-                <div>
-                  <Label>Robo (opcional)</Label>
-                  <Select value={machineId} onValueChange={setMachineId}>
-                    <SelectTrigger data-testid="select-transaction-machine"><SelectValue placeholder="Selecionar automaticamente" /></SelectTrigger>
-                    <SelectContent>
-                      {(machines ?? []).map((m: any) => (
-                        <SelectItem key={m.id} value={String(m.id)}>{m.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Reference (opcional)</Label>
+                    <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="REF-001" data-testid="input-transaction-reference" />
+                  </div>
+                  <div>
+                    <Label>Prioridade</Label>
+                    <Select value={priority} onValueChange={setPriority}>
+                      <SelectTrigger data-testid="select-transaction-priority"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">Alta</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="low">Baixa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div>
                   <Label>Specific Data (JSON)</Label>
@@ -240,8 +248,8 @@ export default function QueueDetailPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleAdd} disabled={addItem.isPending} data-testid="button-submit-transaction">
-                  {addItem.isPending ? "Enviando..." : "Adicionar a fila"}
+                <Button onClick={handleAdd} disabled={enqueue.isPending} data-testid="button-submit-transaction">
+                  {enqueue.isPending ? "Enviando..." : "Adicionar a fila"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -251,7 +259,6 @@ export default function QueueDetailPage() {
 
       <p className="text-xs text-muted-foreground" data-testid="text-row-count">{rows.length} transacoes</p>
 
-      {/* Table */}
       <div className="border border-border rounded-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm" data-testid="transactions-table">
@@ -277,13 +284,13 @@ export default function QueueDetailPage() {
               ) : (
                 pageRows.map((item) => (
                   <tr key={item.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20" data-testid={`transaction-row-${item.id}`}>
-                    <td className="p-3 pr-4 font-mono text-foreground">{item.id}</td>
+                    <td className="p-3 pr-4 font-mono text-foreground">{item.reference ?? `#${item.id}`}</td>
                     <td className="p-3 pr-4"><StatusBadge status={item.status} /></td>
-                    <td className="p-3 pr-4 text-muted-foreground">Normal</td>
+                    <td className="p-3 pr-4 text-xs"><PriorityBadge priority={item.priority} /></td>
                     <td className="p-3 pr-4 text-muted-foreground text-xs whitespace-nowrap">{fmt(item.startedAt)}</td>
-                    <td className="p-3 pr-4 text-muted-foreground text-xs whitespace-nowrap">{fmt(item.finishedAt)}</td>
+                    <td className="p-3 pr-4 text-muted-foreground text-xs whitespace-nowrap">{fmt(item.endedAt)}</td>
                     <td className="p-3 pr-4 text-muted-foreground">{item.machineName ?? "—"}</td>
-                    <td className="p-3 pr-4 text-muted-foreground text-xs max-w-[200px] truncate">{item.errorMessage ?? "—"}</td>
+                    <td className="p-3 pr-4 text-muted-foreground text-xs max-w-[200px] truncate">{item.exception ?? "—"}</td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSelected(item)} data-testid={`button-view-details-${item.id}`} title="Ver detalhes">
@@ -299,13 +306,25 @@ export default function QueueDetailPage() {
                             <DropdownMenuItem onClick={() => setSelected(item)} data-testid={`menu-view-details-${item.id}`}>
                               <Info className="h-4 w-4 mr-2" />Ver detalhes
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <Link href={`/executions/${item.id}`}>
-                              <DropdownMenuItem data-testid={`menu-view-job-${item.id}`}>
-                                <ExternalLink className="h-4 w-4 mr-2" />Ver job executor
+                            {item.status === "failed" && (
+                              <DropdownMenuItem onClick={() => handleUpdate(item.id, "new")} data-testid={`menu-retry-${item.id}`}>
+                                <RotateCcw className="h-4 w-4 mr-2" />Reenfileirar
                               </DropdownMenuItem>
-                            </Link>
-                            <Link href={`/execution-logs?execucao=${item.id}`}>
+                            )}
+                            {(item.status === "new" || item.status === "failed") && (
+                              <DropdownMenuItem onClick={() => handleUpdate(item.id, "abandoned")} data-testid={`menu-abandon-${item.id}`}>
+                                <Ban className="h-4 w-4 mr-2" />Abandonar
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            {item.jobId != null && (
+                              <Link href={`/jobs/${item.jobId}`}>
+                                <DropdownMenuItem data-testid={`menu-view-job-${item.id}`}>
+                                  <ExternalLink className="h-4 w-4 mr-2" />Ver job executor
+                                </DropdownMenuItem>
+                              </Link>
+                            )}
+                            <Link href={`/execution-logs?execucao=${item.jobId ?? item.id}`}>
                               <DropdownMenuItem data-testid={`menu-view-log-${item.id}`}>
                                 <ScrollText className="h-4 w-4 mr-2" />Ver log de execucao
                               </DropdownMenuItem>
@@ -320,7 +339,6 @@ export default function QueueDetailPage() {
             </tbody>
           </table>
         </div>
-        {/* Pagination */}
         <div className="flex items-center justify-between p-3 border-t border-border text-xs text-muted-foreground">
           <span>
             {rows.length === 0 ? "0" : `${(safePage - 1) * PAGE_SIZE + 1} - ${Math.min(safePage * PAGE_SIZE, rows.length)}`} de {rows.length}
@@ -333,26 +351,14 @@ export default function QueueDetailPage() {
         </div>
       </div>
 
-      {/* Detail panel */}
       <TransactionDetailSheet item={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }
 
 function TransactionDetailSheet({ item, onClose }: { item: QueueItem | null; onClose: () => void }) {
-  const logParams = item ? { id_execucao: item.id } : {};
-  const { data: logs } = useListExecutionLogs(
-    logParams,
-    { query: { enabled: !!item, queryKey: getListExecutionLogsQueryKey(logParams) } },
-  );
-
-  const specificData = useMemo(() => {
-    if (!item) return null;
-    const fromInput = parseSpecificData(item.inputData);
-    if (fromInput) return fromInput;
-    const logWithFields = (logs ?? []).find((l: any) => l.fields);
-    return logWithFields ? ((logWithFields as any).fields as Record<string, unknown>) : null;
-  }, [item, logs]);
+  const specificData = useMemo(() => (item ? parseData(item.data) : null), [item]);
+  const outputData = useMemo(() => (item ? parseData(item.output) : null), [item]);
 
   return (
     <Sheet open={!!item} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -360,7 +366,7 @@ function TransactionDetailSheet({ item, onClose }: { item: QueueItem | null; onC
         {item && (
           <>
             <SheetHeader>
-              <SheetTitle className="font-mono text-sm truncate">Transacao #{item.id}</SheetTitle>
+              <SheetTitle className="font-mono text-sm truncate">Transacao {item.reference ?? `#${item.id}`}</SheetTitle>
             </SheetHeader>
             <Tabs defaultValue="details" className="mt-4">
               <TabsList className="grid w-full grid-cols-3">
@@ -387,27 +393,30 @@ function TransactionDetailSheet({ item, onClose }: { item: QueueItem | null; onC
                 </div>
 
                 <div>
-                  <p className="text-sm font-semibold mb-1">Output Data: <span className="font-normal text-muted-foreground">{item.exitCode != null || item.errorMessage ? "" : "Empty"}</span></p>
-                  {(item.exitCode != null || item.errorMessage) && (
-                    <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-3 text-xs">
-                      {item.exitCode != null && (
-                        <div className="grid grid-cols-[auto_1fr] gap-2"><span className="text-muted-foreground">exit_code:</span><span className="font-mono">{item.exitCode}</span></div>
-                      )}
-                      {item.errorMessage && (
-                        <div className="grid grid-cols-[auto_1fr] gap-2"><span className="text-muted-foreground">error:</span><span className="font-mono break-all text-red-400">{item.errorMessage}</span></div>
-                      )}
+                  <p className="text-sm font-semibold mb-1">Output Data: <span className="font-normal text-muted-foreground">{outputData || item.exception ? "" : "Empty"}</span></p>
+                  {outputData && (
+                    <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-3 text-xs" data-testid="output-data-content">
+                      {Object.entries(outputData).map(([k, v]) => (
+                        <div key={k} className="grid grid-cols-[auto_1fr] gap-2">
+                          <span className="text-muted-foreground">{k}:</span>
+                          <span className="font-mono break-all">{typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {item.exception && (
+                    <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-3 text-xs mt-2">
+                      <div className="grid grid-cols-[auto_1fr] gap-2"><span className="text-muted-foreground">exception:</span><span className="font-mono break-all text-red-400">{item.exception}</span></div>
                     </div>
                   )}
                 </div>
 
-                <p className="text-sm font-semibold">Analytics Data: <span className="font-normal text-muted-foreground">Empty</span></p>
-                <p className="text-sm font-semibold">Recording: <span className="font-normal text-muted-foreground">False</span></p>
-
                 <div className="rounded-md border border-border p-3 space-y-1.5 text-xs">
                   <div className="grid grid-cols-[auto_1fr] gap-2"><span className="text-muted-foreground">Status:</span><span><StatusBadge status={item.status} /></span></div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2"><span className="text-muted-foreground">Tentativa:</span><span className="font-mono">{item.attempt}</span></div>
+                  <div className="grid grid-cols-[auto_1fr] gap-2"><span className="text-muted-foreground">Prioridade:</span><span><PriorityBadge priority={item.priority} /></span></div>
+                  <div className="grid grid-cols-[auto_1fr] gap-2"><span className="text-muted-foreground">Tentativas:</span><span className="font-mono">{item.attempts}</span></div>
                   <div className="grid grid-cols-[auto_1fr] gap-2"><span className="text-muted-foreground">Robo:</span><span>{item.machineName ?? "—"}</span></div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2"><span className="text-muted-foreground">Duracao:</span><span>{item.durationSeconds != null ? `${item.durationSeconds}s` : "—"}</span></div>
+                  <div className="grid grid-cols-[auto_1fr] gap-2"><span className="text-muted-foreground">Deadline:</span><span>{fmt(item.deadline)}</span></div>
                 </div>
               </TabsContent>
 
@@ -427,10 +436,10 @@ function TransactionDetailSheet({ item, onClose }: { item: QueueItem | null; onC
                       <div><p className="font-medium text-foreground">Iniciado</p><p className="text-muted-foreground">{fmt(item.startedAt)}</p></div>
                     </div>
                   )}
-                  {item.finishedAt && (
+                  {item.endedAt && (
                     <div className="flex items-start gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5" />
-                      <div><p className="font-medium text-foreground">Finalizado</p><p className="text-muted-foreground">{fmt(item.finishedAt)}</p></div>
+                      <div><p className="font-medium text-foreground">Finalizado</p><p className="text-muted-foreground">{fmt(item.endedAt)}</p></div>
                     </div>
                   )}
                 </div>

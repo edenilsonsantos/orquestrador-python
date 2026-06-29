@@ -6,9 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateProjectBody {
-  name?: string;
-  description?: string;
-  category?: string;
-  status?: string;
+export interface DailyJobStat {
+  date: string;
+  completed: number;
+  errors: number;
+  total: number;
 }

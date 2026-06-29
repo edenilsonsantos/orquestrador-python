@@ -59,15 +59,7 @@ export interface Project {
   description?: string | null;
   /** rpa | backend */
   category: string;
-  /** zip | git */
-  deployMethod: string;
-  /** @nullable */
-  repositoryUrl?: string | null;
-  /** @nullable */
-  repositoryBranch?: string | null;
-  /** @nullable */
-  activeVersion?: string | null;
-  /** active | inactive | deploying */
+  /** active | inactive */
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -77,19 +69,94 @@ export interface CreateProjectBody {
   name: string;
   description?: string;
   category: string;
-  deployMethod: string;
-  repositoryUrl?: string;
-  repositoryBranch?: string;
 }
 
 export interface UpdateProjectBody {
   name?: string;
   description?: string;
   category?: string;
+  status?: string;
+}
+
+/**
+ * @nullable
+ */
+export type AutomationInputParams = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type AutomationOutputParams = { [key: string]: unknown } | null;
+
+export interface Automation {
+  id: number;
+  projectId: number;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  version: string;
+  entrypoint: string;
+  /** zip | git */
+  deployMethod: string;
+  /** @nullable */
+  repositoryUrl?: string | null;
+  /** @nullable */
+  repositoryBranch?: string | null;
+  /** @nullable */
+  inputParams?: AutomationInputParams;
+  /** @nullable */
+  outputParams?: AutomationOutputParams;
+  active: boolean;
+  /** active | inactive */
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  projectName?: string | null;
+}
+
+export type CreateAutomationBodyInputParams = { [key: string]: unknown };
+
+export type CreateAutomationBodyOutputParams = { [key: string]: unknown };
+
+export interface CreateAutomationBody {
+  projectId: number;
+  name: string;
+  description?: string;
+  version?: string;
+  entrypoint?: string;
   deployMethod?: string;
   repositoryUrl?: string;
   repositoryBranch?: string;
+  inputParams?: CreateAutomationBodyInputParams;
+  outputParams?: CreateAutomationBodyOutputParams;
+}
+
+export type UpdateAutomationBodyInputParams = { [key: string]: unknown };
+
+export type UpdateAutomationBodyOutputParams = { [key: string]: unknown };
+
+export interface UpdateAutomationBody {
+  name?: string;
+  description?: string;
+  version?: string;
+  entrypoint?: string;
+  deployMethod?: string;
+  repositoryUrl?: string;
+  repositoryBranch?: string;
+  inputParams?: UpdateAutomationBodyInputParams;
+  outputParams?: UpdateAutomationBodyOutputParams;
+  active?: boolean;
   status?: string;
+}
+
+export interface RunAutomationBody {
+  /** @nullable */
+  machineId?: number | null;
+  /** @nullable */
+  queueId?: number | null;
+  /** @nullable */
+  inputData?: string | null;
 }
 
 export interface Queue {
@@ -132,24 +199,78 @@ export interface UpdateQueueBody {
   status?: string;
 }
 
-export interface AddQueueItemBody {
-  /** @nullable */
-  machineId?: number | null;
-  /** @nullable */
-  inputData?: string | null;
-}
-
-export interface Execution {
+export interface QueueItem {
   id: number;
   queueId: number;
-  projectId: number;
+  /** @nullable */
+  reference?: string | null;
+  /** @nullable */
+  data?: string | null;
+  /** high | normal | low */
+  priority: string;
+  /** new | in_progress | successful | failed | abandoned */
+  status: string;
+  attempts: number;
   /** @nullable */
   machineId?: number | null;
-  /** pending | running | completed | error | stopped */
+  /** @nullable */
+  jobId?: number | null;
+  /** @nullable */
+  output?: string | null;
+  /** @nullable */
+  exception?: string | null;
+  /** @nullable */
+  deadline?: string | null;
+  /** @nullable */
+  startedAt?: string | null;
+  /** @nullable */
+  endedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  queueName?: string | null;
+  /** @nullable */
+  machineName?: string | null;
+}
+
+export interface EnqueueItemBody {
+  reference?: string;
+  data?: string;
+  priority?: string;
+  deadline?: string;
+}
+
+export interface DequeueBody {
+  /** @nullable */
+  machineId?: number | null;
+}
+
+export interface UpdateQueueItemBody {
+  status?: string;
+  output?: string;
+  exception?: string;
+  priority?: string;
+  data?: string;
+}
+
+export interface Job {
+  id: number;
+  /** @nullable */
+  automationId?: number | null;
+  projectId: number;
+  /** @nullable */
+  queueId?: number | null;
+  /** @nullable */
+  machineId?: number | null;
+  /** @nullable */
+  scheduleId?: number | null;
+  /** pending | running | successful | faulted | stopped | skipped */
   status: string;
   attempt: number;
   /** @nullable */
   inputData?: string | null;
+  /** @nullable */
+  outputData?: string | null;
   /** @nullable */
   exitCode?: number | null;
   /** @nullable */
@@ -165,6 +286,8 @@ export interface Execution {
   /** @nullable */
   projectName?: string | null;
   /** @nullable */
+  automationName?: string | null;
+  /** @nullable */
   queueName?: string | null;
   /** @nullable */
   machineName?: string | null;
@@ -172,9 +295,11 @@ export interface Execution {
 
 export interface LogLine {
   id: number;
-  executionId: number;
+  jobId: number;
   /** stdout | stderr */
   stream: string;
+  /** DEBUG | INFO | WARNING | ERROR */
+  level: string;
   content: string;
   timestamp: string;
 }
@@ -182,8 +307,13 @@ export interface LogLine {
 export interface Schedule {
   id: number;
   name: string;
-  queueId: number;
-  /** cron | interval | webhook */
+  /** @nullable */
+  automationId?: number | null;
+  /** @nullable */
+  queueId?: number | null;
+  /** @nullable */
+  targetMachineId?: number | null;
+  /** cron | interval | queue | webhook */
   triggerType: string;
   /** @nullable */
   cronExpression?: string | null;
@@ -191,6 +321,9 @@ export interface Schedule {
   intervalMinutes?: number | null;
   /** @nullable */
   webhookToken?: string | null;
+  minItemsToTrigger: number;
+  maxConcurrentAgents: number;
+  itemsPerAgent: number;
   enabled: boolean;
   /** @nullable */
   lastTriggeredAt?: string | null;
@@ -199,21 +332,37 @@ export interface Schedule {
   createdAt: string;
   updatedAt: string;
   /** @nullable */
+  automationName?: string | null;
+  /** @nullable */
   queueName?: string | null;
+  /** @nullable */
+  targetMachineName?: string | null;
 }
 
 export interface CreateScheduleBody {
   name: string;
-  queueId: number;
+  automationId?: number;
+  queueId?: number;
+  targetMachineId?: number;
   triggerType: string;
   cronExpression?: string;
   intervalMinutes?: number;
+  minItemsToTrigger?: number;
+  maxConcurrentAgents?: number;
+  itemsPerAgent?: number;
 }
 
 export interface UpdateScheduleBody {
   name?: string;
+  automationId?: number;
+  queueId?: number;
+  targetMachineId?: number;
+  triggerType?: string;
   cronExpression?: string;
   intervalMinutes?: number;
+  minItemsToTrigger?: number;
+  maxConcurrentAgents?: number;
+  itemsPerAgent?: number;
   enabled?: boolean;
 }
 
@@ -284,19 +433,20 @@ export interface AgentInfo {
 }
 
 export interface DashboardSummary {
-  executionsToday: number;
-  executionsRunning: number;
+  jobsToday: number;
+  jobsRunning: number;
   successRate: number;
   machinesOnline: number;
   machinesTotal: number;
   queuesActive: number;
   queuesPaused: number;
   projectsTotal: number;
+  automationsTotal: number;
   errorsToday: number;
   pendingItems: number;
 }
 
-export interface DailyExecutionStat {
+export interface DailyJobStat {
   date: string;
   completed: number;
   errors: number;
@@ -358,12 +508,30 @@ export interface CreateApiKeyBody {
   name: string;
 }
 
-export type ListExecutionsParams = {
+export type ListAutomationsParams = {
+  /**
+   * @nullable
+   */
+  projectId?: number | null;
+};
+
+export type ListQueueItemsParams = {
+  /**
+   * @nullable
+   */
+  status?: string | null;
+};
+
+export type ListJobsParams = {
   status?: string;
   /**
    * @nullable
    */
   projectId?: number | null;
+  /**
+   * @nullable
+   */
+  automationId?: number | null;
   /**
    * @nullable
    */

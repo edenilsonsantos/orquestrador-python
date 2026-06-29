@@ -6,15 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListExecutionsParams = {
-  status?: string;
+export type ListQueueItemsParams = {
   /**
    * @nullable
    */
-  projectId?: number | null;
-  /**
-   * @nullable
-   */
-  machineId?: number | null;
-  limit?: number;
+  status?: string | null;
 };

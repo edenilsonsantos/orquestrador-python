@@ -8,7 +8,14 @@
 
 export interface UpdateScheduleBody {
   name?: string;
+  automationId?: number;
+  queueId?: number;
+  targetMachineId?: number;
+  triggerType?: string;
   cronExpression?: string;
   intervalMinutes?: number;
+  minItemsToTrigger?: number;
+  maxConcurrentAgents?: number;
+  itemsPerAgent?: number;
   enabled?: boolean;
 }

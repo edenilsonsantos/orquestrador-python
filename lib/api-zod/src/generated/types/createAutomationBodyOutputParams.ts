@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateProjectBody {
-  name?: string;
-  description?: string;
-  category?: string;
-  status?: string;
-}
+export type CreateAutomationBodyOutputParams = { [key: string]: unknown };

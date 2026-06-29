@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import path from "node:path";
 import fs from "node:fs";
 import { eq, and, inArray, asc } from "drizzle-orm";
-import { db, machinesTable, executionsTable, projectsTable, queuesTable, assetsTable } from "@workspace/db";
+import { db, machinesTable, jobsTable, automationsTable, projectsTable, queuesTable, assetsTable } from "@workspace/db";
 import { GetAgentInfoResponse as AgentInfoSchema } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -486,31 +486,43 @@ router.get("/agent/next-execution", async (req, res): Promise<void> => {
     res.status(401).json({ error: "invalid agent token" });
     return;
   }
-  const candidates = await db
-    .select({ exec: executionsTable, project: projectsTable, queue: queuesTable })
-    .from(executionsTable)
-    .leftJoin(projectsTable, eq(executionsTable.projectId, projectsTable.id))
-    .leftJoin(queuesTable, eq(executionsTable.queueId, queuesTable.id))
-    .where(eq(executionsTable.status, "pending"))
-    .orderBy(asc(executionsTable.createdAt))
-    .limit(1);
+  const claimed = await db.transaction(async (tx) => {
+    const candidates = await tx
+      .select({ job: jobsTable, automation: automationsTable, project: projectsTable, queue: queuesTable })
+      .from(jobsTable)
+      .leftJoin(automationsTable, eq(jobsTable.automationId, automationsTable.id))
+      .leftJoin(projectsTable, eq(jobsTable.projectId, projectsTable.id))
+      .leftJoin(queuesTable, eq(jobsTable.queueId, queuesTable.id))
+      .where(eq(jobsTable.status, "pending"))
+      .orderBy(asc(jobsTable.createdAt))
+      .limit(1)
+      .for("update", { skipLocked: true });
 
-  if (candidates.length === 0) {
+    if (candidates.length === 0) return null;
+    const c = candidates[0];
+    await tx
+      .update(jobsTable)
+      .set({ machineId: m.id, status: "running", startedAt: new Date() })
+      .where(eq(jobsTable.id, c.job.id));
+    return c;
+  });
+
+  if (!claimed) {
     res.status(204).end();
     return;
   }
-  const c = candidates[0];
-  await db.update(executionsTable).set({ machineId: m.id, status: "running", startedAt: new Date() }).where(eq(executionsTable.id, c.exec.id));
 
   res.json({
-    id: c.exec.id,
-    deployMethod: c.project?.deployMethod ?? "zip",
-    repositoryUrl: c.project?.repositoryUrl ?? null,
-    repositoryBranch: c.project?.repositoryBranch ?? "main",
-    activeVersion: c.project?.activeVersion ?? null,
-    projectName: c.project?.name ?? null,
-    queueName: c.queue?.name ?? null,
-    inputData: c.exec.inputData ?? null,
+    id: claimed.job.id,
+    deployMethod: claimed.automation?.deployMethod ?? "zip",
+    repositoryUrl: claimed.automation?.repositoryUrl ?? null,
+    repositoryBranch: claimed.automation?.repositoryBranch ?? "main",
+    entrypoint: claimed.automation?.entrypoint ?? "main.py",
+    version: claimed.automation?.version ?? null,
+    automationName: claimed.automation?.name ?? null,
+    projectName: claimed.project?.name ?? null,
+    queueName: claimed.queue?.name ?? null,
+    inputData: claimed.job.inputData ?? null,
   });
 });
 

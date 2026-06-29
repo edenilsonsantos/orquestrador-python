@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListSchedules, useListQueues, useCreateSchedule, useToggleSchedule, useDeleteSchedule, getListSchedulesQueryKey } from "@workspace/api-client-react";
+import { useListSchedules, useListQueues, useListAutomations, useListMachines, useCreateSchedule, useToggleSchedule, useDeleteSchedule, getListSchedulesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +14,18 @@ import { Clock, Plus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 
+const TRIGGER_LABELS: Record<string, string> = {
+  cron: "Cron",
+  interval: "Intervalo",
+  queue: "Fila",
+  webhook: "Webhook",
+};
+
 export default function SchedulesPage() {
   const { data: schedules, isLoading } = useListSchedules();
   const { data: queues } = useListQueues();
+  const { data: automations } = useListAutomations();
+  const { data: machines } = useListMachines();
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const createSchedule = useCreateSchedule();
@@ -24,22 +33,48 @@ export default function SchedulesPage() {
   const deleteSchedule = useDeleteSchedule();
   const { register, handleSubmit, reset, setValue, watch } = useForm<{
     name: string;
+    automationId: number;
     queueId: number;
+    targetMachineId: number;
     triggerType: string;
     cronExpression: string;
     intervalMinutes: number;
+    minItemsToTrigger: number;
   }>({ defaultValues: { triggerType: "cron" } });
 
   const triggerType = watch("triggerType");
 
-  function onSubmit(data: { name: string; queueId: number; triggerType: string; cronExpression: string; intervalMinutes: number }) {
-    createSchedule.mutate({ data }, {
-      onSuccess: () => {
-        qc.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
-        setOpen(false);
-        reset();
-      }
-    });
+  function onSubmit(data: {
+    name: string;
+    automationId: number;
+    queueId: number;
+    targetMachineId: number;
+    triggerType: string;
+    cronExpression: string;
+    intervalMinutes: number;
+    minItemsToTrigger: number;
+  }) {
+    createSchedule.mutate(
+      {
+        data: {
+          name: data.name,
+          automationId: data.automationId ? Number(data.automationId) : undefined,
+          queueId: data.queueId ? Number(data.queueId) : undefined,
+          targetMachineId: data.targetMachineId ? Number(data.targetMachineId) : undefined,
+          triggerType: data.triggerType,
+          cronExpression: data.triggerType === "cron" ? data.cronExpression || undefined : undefined,
+          intervalMinutes: data.triggerType === "interval" ? Number(data.intervalMinutes) || undefined : undefined,
+          minItemsToTrigger: data.triggerType === "queue" ? Number(data.minItemsToTrigger) || undefined : undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+          setOpen(false);
+          reset();
+        },
+      },
+    );
   }
 
   function handleToggle(id: number, enabled: boolean) {
@@ -53,7 +88,7 @@ export default function SchedulesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Agendamentos</h1>
-          <p className="text-sm text-muted-foreground mt-1">Gatilhos e schedulers de execucao</p>
+          <p className="text-sm text-muted-foreground mt-1">Gatilhos que disparam automacoes</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -67,12 +102,12 @@ export default function SchedulesPage() {
                 <Input {...register("name")} placeholder="ETL Diario" data-testid="input-schedule-name" />
               </div>
               <div>
-                <Label>Fila</Label>
-                <Select onValueChange={(v) => setValue("queueId", Number(v))}>
-                  <SelectTrigger data-testid="select-schedule-queue"><SelectValue placeholder="Selecione a fila" /></SelectTrigger>
+                <Label>Automacao</Label>
+                <Select onValueChange={(v) => setValue("automationId", Number(v))}>
+                  <SelectTrigger data-testid="select-schedule-automation"><SelectValue placeholder="Selecione a automacao" /></SelectTrigger>
                   <SelectContent>
-                    {(queues ?? []).map((q) => (
-                      <SelectItem key={q.id} value={String(q.id)}>{q.name}</SelectItem>
+                    {(automations ?? []).map((a) => (
+                      <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -84,6 +119,7 @@ export default function SchedulesPage() {
                   <SelectContent>
                     <SelectItem value="cron">Cron</SelectItem>
                     <SelectItem value="interval">Intervalo</SelectItem>
+                    <SelectItem value="queue">Fila</SelectItem>
                     <SelectItem value="webhook">Webhook</SelectItem>
                   </SelectContent>
                 </Select>
@@ -100,6 +136,36 @@ export default function SchedulesPage() {
                   <Input {...register("intervalMinutes", { valueAsNumber: true })} type="number" min={1} data-testid="input-interval" />
                 </div>
               )}
+              {triggerType === "queue" && (
+                <>
+                  <div>
+                    <Label>Fila monitorada</Label>
+                    <Select onValueChange={(v) => setValue("queueId", Number(v))}>
+                      <SelectTrigger data-testid="select-schedule-queue"><SelectValue placeholder="Selecione a fila" /></SelectTrigger>
+                      <SelectContent>
+                        {(queues ?? []).map((q) => (
+                          <SelectItem key={q.id} value={String(q.id)}>{q.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Minimo de itens para disparar</Label>
+                    <Input {...register("minItemsToTrigger", { valueAsNumber: true })} type="number" min={1} defaultValue={1} data-testid="input-min-items" />
+                  </div>
+                </>
+              )}
+              <div>
+                <Label>Maquina alvo (opcional)</Label>
+                <Select onValueChange={(v) => setValue("targetMachineId", Number(v))}>
+                  <SelectTrigger data-testid="select-schedule-machine"><SelectValue placeholder="Selecionar automaticamente" /></SelectTrigger>
+                  <SelectContent>
+                    {(machines ?? []).map((m: any) => (
+                      <SelectItem key={m.id} value={String(m.id)}>{m.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Button type="submit" disabled={createSchedule.isPending} data-testid="button-submit-schedule">
                 {createSchedule.isPending ? "Criando..." : "Criar Agendamento"}
               </Button>
@@ -122,10 +188,13 @@ export default function SchedulesPage() {
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <p className="text-sm font-medium text-foreground">{schedule.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
                         <Badge variant="outline" className="text-xs">
-                          {schedule.triggerType === "cron" ? "Cron" : schedule.triggerType === "interval" ? "Intervalo" : "Webhook"}
+                          {TRIGGER_LABELS[schedule.triggerType] ?? schedule.triggerType}
                         </Badge>
+                        {schedule.automationName && (
+                          <span className="text-xs text-muted-foreground">{schedule.automationName}</span>
+                        )}
                         {schedule.cronExpression && (
                           <span className="text-xs text-muted-foreground font-mono">{schedule.cronExpression}</span>
                         )}
@@ -133,7 +202,7 @@ export default function SchedulesPage() {
                           <span className="text-xs text-muted-foreground">a cada {schedule.intervalMinutes}min</span>
                         )}
                         {schedule.queueName && (
-                          <span className="text-xs text-muted-foreground">→ {schedule.queueName}</span>
+                          <span className="text-xs text-muted-foreground">fila: {schedule.queueName}</span>
                         )}
                       </div>
                     </div>

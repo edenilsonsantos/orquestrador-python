@@ -8,8 +8,13 @@
 
 export interface CreateScheduleBody {
   name: string;
-  queueId: number;
+  automationId?: number;
+  queueId?: number;
+  targetMachineId?: number;
   triggerType: string;
   cronExpression?: string;
   intervalMinutes?: number;
+  minItemsToTrigger?: number;
+  maxConcurrentAgents?: number;
+  itemsPerAgent?: number;
 }

@@ -10,7 +10,4 @@ export interface CreateProjectBody {
   name: string;
   description?: string;
   category: string;
-  deployMethod: string;
-  repositoryUrl?: string;
-  repositoryBranch?: string;
 }

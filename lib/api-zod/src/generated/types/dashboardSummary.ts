@@ -7,14 +7,15 @@
  */
 
 export interface DashboardSummary {
-  executionsToday: number;
-  executionsRunning: number;
+  jobsToday: number;
+  jobsRunning: number;
   successRate: number;
   machinesOnline: number;
   machinesTotal: number;
   queuesActive: number;
   queuesPaused: number;
   projectsTotal: number;
+  automationsTotal: number;
   errorsToday: number;
   pendingItems: number;
 }

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, schedulesTable, queuesTable } from "@workspace/db";
+import { db, schedulesTable, queuesTable, automationsTable, machinesTable } from "@workspace/db";
 import {
   CreateScheduleBody,
   GetScheduleParams,
@@ -18,48 +18,47 @@ import { serialize } from "../utils/serialize";
 
 const router: IRouter = Router();
 
+const scheduleColumns = {
+  id: schedulesTable.id,
+  name: schedulesTable.name,
+  automationId: schedulesTable.automationId,
+  queueId: schedulesTable.queueId,
+  targetMachineId: schedulesTable.targetMachineId,
+  triggerType: schedulesTable.triggerType,
+  cronExpression: schedulesTable.cronExpression,
+  intervalMinutes: schedulesTable.intervalMinutes,
+  webhookToken: schedulesTable.webhookToken,
+  minItemsToTrigger: schedulesTable.minItemsToTrigger,
+  maxConcurrentAgents: schedulesTable.maxConcurrentAgents,
+  itemsPerAgent: schedulesTable.itemsPerAgent,
+  enabled: schedulesTable.enabled,
+  lastTriggeredAt: schedulesTable.lastTriggeredAt,
+  nextRunAt: schedulesTable.nextRunAt,
+  createdAt: schedulesTable.createdAt,
+  updatedAt: schedulesTable.updatedAt,
+  automationName: automationsTable.name,
+  queueName: queuesTable.name,
+  targetMachineName: machinesTable.name,
+} as const;
+
 async function getScheduleWithQueue(id: number) {
   const result = await db
-    .select({
-      id: schedulesTable.id,
-      name: schedulesTable.name,
-      queueId: schedulesTable.queueId,
-      triggerType: schedulesTable.triggerType,
-      cronExpression: schedulesTable.cronExpression,
-      intervalMinutes: schedulesTable.intervalMinutes,
-      webhookToken: schedulesTable.webhookToken,
-      enabled: schedulesTable.enabled,
-      lastTriggeredAt: schedulesTable.lastTriggeredAt,
-      nextRunAt: schedulesTable.nextRunAt,
-      createdAt: schedulesTable.createdAt,
-      updatedAt: schedulesTable.updatedAt,
-      queueName: queuesTable.name,
-    })
+    .select(scheduleColumns)
     .from(schedulesTable)
+    .leftJoin(automationsTable, eq(schedulesTable.automationId, automationsTable.id))
     .leftJoin(queuesTable, eq(schedulesTable.queueId, queuesTable.id))
+    .leftJoin(machinesTable, eq(schedulesTable.targetMachineId, machinesTable.id))
     .where(eq(schedulesTable.id, id));
   return result[0] ?? null;
 }
 
 router.get("/schedules", async (_req, res): Promise<void> => {
   const results = await db
-    .select({
-      id: schedulesTable.id,
-      name: schedulesTable.name,
-      queueId: schedulesTable.queueId,
-      triggerType: schedulesTable.triggerType,
-      cronExpression: schedulesTable.cronExpression,
-      intervalMinutes: schedulesTable.intervalMinutes,
-      webhookToken: schedulesTable.webhookToken,
-      enabled: schedulesTable.enabled,
-      lastTriggeredAt: schedulesTable.lastTriggeredAt,
-      nextRunAt: schedulesTable.nextRunAt,
-      createdAt: schedulesTable.createdAt,
-      updatedAt: schedulesTable.updatedAt,
-      queueName: queuesTable.name,
-    })
+    .select(scheduleColumns)
     .from(schedulesTable)
+    .leftJoin(automationsTable, eq(schedulesTable.automationId, automationsTable.id))
     .leftJoin(queuesTable, eq(schedulesTable.queueId, queuesTable.id))
+    .leftJoin(machinesTable, eq(schedulesTable.targetMachineId, machinesTable.id))
     .orderBy(schedulesTable.name);
   res.json(ListSchedulesResponse.parse(serialize(results)));
 });

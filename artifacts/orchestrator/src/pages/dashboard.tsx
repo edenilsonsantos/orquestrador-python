@@ -1,4 +1,4 @@
-import { useGetDashboardSummary, useGetExecutionStats, useGetQueueHealth, useGetRecentExecutions } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetJobStats, useGetQueueHealth, useGetRecentJobs } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,18 +8,20 @@ import { format } from "date-fns";
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, string> = {
-    completed: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+    successful: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
     running: "bg-blue-500/20 text-blue-400 border-blue-500/30",
     pending: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    error: "bg-red-500/20 text-red-400 border-red-500/30",
+    faulted: "bg-red-500/20 text-red-400 border-red-500/30",
     stopped: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+    skipped: "bg-gray-500/20 text-gray-400 border-gray-500/30",
   };
   const labels: Record<string, string> = {
-    completed: "Concluído",
+    successful: "Sucesso",
     running: "Executando",
     pending: "Pendente",
-    error: "Erro",
+    faulted: "Falhou",
     stopped: "Parado",
+    skipped: "Ignorado",
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border font-medium ${variants[status] ?? "bg-gray-500/20 text-gray-400 border-gray-500/30"}`}>
@@ -30,21 +32,21 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function Dashboard() {
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
-  const { data: stats, isLoading: statsLoading } = useGetExecutionStats();
+  const { data: stats, isLoading: statsLoading } = useGetJobStats();
   const { data: queueHealth, isLoading: queueLoading } = useGetQueueHealth();
-  const { data: recentExecutions, isLoading: recentLoading } = useGetRecentExecutions();
+  const { data: recentJobs, isLoading: recentLoading } = useGetRecentJobs();
 
   const metricCards = [
     {
-      title: "Execuções Hoje",
-      value: summary?.executionsToday ?? 0,
+      title: "Jobs Hoje",
+      value: summary?.jobsToday ?? 0,
       icon: Play,
       color: "text-blue-400",
       bg: "bg-blue-500/10",
     },
     {
       title: "Em Execução",
-      value: summary?.executionsRunning ?? 0,
+      value: summary?.jobsRunning ?? 0,
       icon: Monitor,
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
@@ -130,7 +132,7 @@ export default function Dashboard() {
         {/* Execution Chart */}
         <Card className="border border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">Execuções — Últimos 7 dias</CardTitle>
+            <CardTitle className="text-sm font-medium text-foreground">Jobs — Últimos 7 dias</CardTitle>
           </CardHeader>
           <CardContent>
             {statsLoading ? (
@@ -205,10 +207,10 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Recent Executions */}
+      {/* Recent Jobs */}
       <Card className="border border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-foreground">Execuções Recentes</CardTitle>
+          <CardTitle className="text-sm font-medium text-foreground">Jobs Recentes</CardTitle>
         </CardHeader>
         <CardContent>
           {recentLoading ? (
@@ -217,11 +219,11 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm" data-testid="recent-executions-table">
+              <table className="w-full text-sm" data-testid="recent-jobs-table">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="text-left pb-2 pr-4 font-medium">ID</th>
-                    <th className="text-left pb-2 pr-4 font-medium">Projeto</th>
+                    <th className="text-left pb-2 pr-4 font-medium">Automação</th>
                     <th className="text-left pb-2 pr-4 font-medium">Fila</th>
                     <th className="text-left pb-2 pr-4 font-medium">Máquina</th>
                     <th className="text-left pb-2 pr-4 font-medium">Status</th>
@@ -229,21 +231,21 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(recentExecutions ?? []).map((exec) => (
-                    <tr key={exec.id} className="border-b border-border/50 last:border-0" data-testid={`execution-row-${exec.id}`}>
-                      <td className="py-2 pr-4 text-muted-foreground font-mono">#{exec.id}</td>
-                      <td className="py-2 pr-4 text-foreground">{exec.projectName ?? "—"}</td>
-                      <td className="py-2 pr-4 text-muted-foreground">{exec.queueName ?? "—"}</td>
-                      <td className="py-2 pr-4 text-muted-foreground">{exec.machineName ?? "—"}</td>
-                      <td className="py-2 pr-4"><StatusBadge status={exec.status} /></td>
+                  {(recentJobs ?? []).map((job) => (
+                    <tr key={job.id} className="border-b border-border/50 last:border-0" data-testid={`job-row-${job.id}`}>
+                      <td className="py-2 pr-4 text-muted-foreground font-mono">#{job.id}</td>
+                      <td className="py-2 pr-4 text-foreground">{job.automationName ?? job.projectName ?? "—"}</td>
+                      <td className="py-2 pr-4 text-muted-foreground">{job.queueName ?? "—"}</td>
+                      <td className="py-2 pr-4 text-muted-foreground">{job.machineName ?? "—"}</td>
+                      <td className="py-2 pr-4"><StatusBadge status={job.status} /></td>
                       <td className="py-2 text-muted-foreground text-xs">
-                        {format(new Date(exec.createdAt), "dd/MM HH:mm")}
+                        {format(new Date(job.createdAt), "dd/MM HH:mm")}
                       </td>
                     </tr>
                   ))}
-                  {(recentExecutions ?? []).length === 0 && (
+                  {(recentJobs ?? []).length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-muted-foreground">Nenhuma execução encontrada</td>
+                      <td colSpan={6} className="py-6 text-center text-muted-foreground">Nenhum job encontrado</td>
                     </tr>
                   )}
                 </tbody>

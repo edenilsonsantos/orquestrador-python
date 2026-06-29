@@ -8,9 +8,11 @@
 
 export interface LogLine {
   id: number;
-  executionId: number;
+  jobId: number;
   /** stdout | stderr */
   stream: string;
+  /** DEBUG | INFO | WARNING | ERROR */
+  level: string;
   content: string;
   timestamp: string;
 }

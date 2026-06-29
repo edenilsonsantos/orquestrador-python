@@ -6,31 +6,34 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface Execution {
+export interface QueueItem {
   id: number;
   queueId: number;
-  projectId: number;
+  /** @nullable */
+  reference?: string | null;
+  /** @nullable */
+  data?: string | null;
+  /** high | normal | low */
+  priority: string;
+  /** new | in_progress | successful | failed | abandoned */
+  status: string;
+  attempts: number;
   /** @nullable */
   machineId?: number | null;
-  /** pending | running | completed | error | stopped */
-  status: string;
-  attempt: number;
   /** @nullable */
-  inputData?: string | null;
+  jobId?: number | null;
   /** @nullable */
-  exitCode?: number | null;
+  output?: string | null;
   /** @nullable */
-  errorMessage?: string | null;
+  exception?: string | null;
+  /** @nullable */
+  deadline?: string | null;
   /** @nullable */
   startedAt?: string | null;
   /** @nullable */
-  finishedAt?: string | null;
-  /** @nullable */
-  durationSeconds?: number | null;
+  endedAt?: string | null;
   createdAt: string;
   updatedAt: string;
-  /** @nullable */
-  projectName?: string | null;
   /** @nullable */
   queueName?: string | null;
   /** @nullable */

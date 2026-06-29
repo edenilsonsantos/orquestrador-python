@@ -13,15 +13,7 @@ export interface Project {
   description?: string | null;
   /** rpa | backend */
   category: string;
-  /** zip | git */
-  deployMethod: string;
-  /** @nullable */
-  repositoryUrl?: string | null;
-  /** @nullable */
-  repositoryBranch?: string | null;
-  /** @nullable */
-  activeVersion?: string | null;
-  /** active | inactive | deploying */
+  /** active | inactive */
   status: string;
   createdAt: string;
   updatedAt: string;

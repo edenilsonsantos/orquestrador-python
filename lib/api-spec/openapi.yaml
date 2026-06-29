@@ -12,13 +12,15 @@ tags:
   - name: machines
     description: Machine/computer management
   - name: projects
-    description: Project/automation management
+    description: Project containers
+  - name: automations
+    description: Versioned automation scripts
   - name: queues
-    description: Execution queue management
-  - name: executions
-    description: Execution management and logs
+    description: Queue and transaction (queue item) management
+  - name: jobs
+    description: Job (execution) management and logs
   - name: schedules
-    description: Schedule and trigger management
+    description: Trigger (schedule) management
   - name: users
     description: User management
   - name: dashboard
@@ -26,7 +28,7 @@ tags:
   - name: assets
     description: Global assets (env vars, credentials, API keys)
   - name: agent
-    description: Agent client download and integration
+    description: Agent client download and runtime protocol
   - name: execution-logs
     description: Execution log ingestion and history
   - name: api-keys
@@ -251,6 +253,127 @@ paths:
         "204":
           description: Deleted
 
+  # ── AUTOMATIONS ───────────────────────────────────────────────────────────
+  /automations:
+    get:
+      operationId: listAutomations
+      tags: [automations]
+      summary: List automations (optionally filtered by project)
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: List of automations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Automation"
+    post:
+      operationId: createAutomation
+      tags: [automations]
+      summary: Create a new automation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAutomationBody"
+      responses:
+        "201":
+          description: Automation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Automation"
+
+  /automations/{id}:
+    get:
+      operationId: getAutomation
+      tags: [automations]
+      summary: Get automation by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Automation details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Automation"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateAutomation
+      tags: [automations]
+      summary: Update an automation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAutomationBody"
+      responses:
+        "200":
+          description: Updated automation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Automation"
+    delete:
+      operationId: deleteAutomation
+      tags: [automations]
+      summary: Delete an automation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /automations/{id}/jobs:
+    post:
+      operationId: runAutomation
+      tags: [automations]
+      summary: Start a manual job for an automation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunAutomationBody"
+      responses:
+        "201":
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
   # ── QUEUES ────────────────────────────────────────────────────────────────
   /queues:
     get:
@@ -345,13 +468,18 @@ paths:
     get:
       operationId: listQueueItems
       tags: [queues]
-      summary: List items in a queue
+      summary: List transactions (items) in a queue
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: ["string", "null"]
       responses:
         "200":
           description: Queue items
@@ -360,11 +488,11 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Execution"
+                  $ref: "#/components/schemas/QueueItem"
     post:
-      operationId: addQueueItem
+      operationId: enqueueItem
       tags: [queues]
-      summary: Add an item to the queue
+      summary: Add a transaction to the queue
       parameters:
         - name: id
           in: path
@@ -376,27 +504,104 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AddQueueItemBody"
+              $ref: "#/components/schemas/EnqueueItemBody"
       responses:
         "201":
-          description: Item added
+          description: Item enqueued
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Execution"
+                $ref: "#/components/schemas/QueueItem"
 
-  # ── EXECUTIONS ────────────────────────────────────────────────────────────
-  /executions:
+  /queues/{id}/dequeue:
+    post:
+      operationId: dequeueItem
+      tags: [queues]
+      summary: Atomically claim the next available transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DequeueBody"
+      responses:
+        "200":
+          description: Item claimed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueItem"
+        "204":
+          description: No items available
+
+  /queue-items/{id}:
     get:
-      operationId: listExecutions
-      tags: [executions]
-      summary: List executions
+      operationId: getQueueItem
+      tags: [queues]
+      summary: Get a transaction by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueItem"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateQueueItem
+      tags: [queues]
+      summary: Update transaction status (complete, fail, retry, abandon)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQueueItemBody"
+      responses:
+        "200":
+          description: Updated transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueItem"
+        "404":
+          description: Not found
+
+  # ── JOBS ──────────────────────────────────────────────────────────────────
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List jobs
       parameters:
         - name: status
           in: query
           schema:
             type: string
         - name: projectId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: automationId
           in: query
           schema:
             type: ["integer", "null"]
@@ -411,19 +616,19 @@ paths:
             default: 50
       responses:
         "200":
-          description: List of executions
+          description: List of jobs
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Execution"
+                  $ref: "#/components/schemas/Job"
 
-  /executions/{id}:
+  /jobs/{id}:
     get:
-      operationId: getExecution
-      tags: [executions]
-      summary: Get execution details
+      operationId: getJob
+      tags: [jobs]
+      summary: Get job details
       parameters:
         - name: id
           in: path
@@ -432,19 +637,19 @@ paths:
             type: integer
       responses:
         "200":
-          description: Execution details
+          description: Job details
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Execution"
+                $ref: "#/components/schemas/Job"
         "404":
           description: Not found
 
-  /executions/{id}/logs:
+  /jobs/{id}/logs:
     get:
-      operationId: getExecutionLogs
-      tags: [executions]
-      summary: Get execution logs
+      operationId: getJobLogs
+      tags: [jobs]
+      summary: Get job logs
       parameters:
         - name: id
           in: path
@@ -453,7 +658,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: Execution logs
+          description: Job logs
           content:
             application/json:
               schema:
@@ -461,11 +666,11 @@ paths:
                 items:
                   $ref: "#/components/schemas/LogLine"
 
-  /executions/{id}/retry:
+  /jobs/{id}/retry:
     post:
-      operationId: retryExecution
-      tags: [executions]
-      summary: Retry a failed execution
+      operationId: retryJob
+      tags: [jobs]
+      summary: Retry a failed job
       parameters:
         - name: id
           in: path
@@ -474,17 +679,17 @@ paths:
             type: integer
       responses:
         "201":
-          description: New execution created
+          description: New job created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Execution"
+                $ref: "#/components/schemas/Job"
 
-  /executions/{id}/stop:
+  /jobs/{id}/stop:
     post:
-      operationId: stopExecution
-      tags: [executions]
-      summary: Stop a running execution
+      operationId: stopJob
+      tags: [jobs]
+      summary: Stop a running job
       parameters:
         - name: id
           in: path
@@ -493,21 +698,21 @@ paths:
             type: integer
       responses:
         "200":
-          description: Execution stop requested
+          description: Job stop requested
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Execution"
+                $ref: "#/components/schemas/Job"
 
-  # ── SCHEDULES ─────────────────────────────────────────────────────────────
+  # ── SCHEDULES (TRIGGERS) ──────────────────────────────────────────────────
   /schedules:
     get:
       operationId: listSchedules
       tags: [schedules]
-      summary: List all schedules
+      summary: List all triggers
       responses:
         "200":
-          description: List of schedules
+          description: List of triggers
           content:
             application/json:
               schema:
@@ -517,7 +722,7 @@ paths:
     post:
       operationId: createSchedule
       tags: [schedules]
-      summary: Create a new schedule
+      summary: Create a new trigger
       requestBody:
         required: true
         content:
@@ -526,7 +731,7 @@ paths:
               $ref: "#/components/schemas/CreateScheduleBody"
       responses:
         "201":
-          description: Schedule created
+          description: Trigger created
           content:
             application/json:
               schema:
@@ -536,7 +741,7 @@ paths:
     get:
       operationId: getSchedule
       tags: [schedules]
-      summary: Get schedule by ID
+      summary: Get trigger by ID
       parameters:
         - name: id
           in: path
@@ -545,7 +750,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: Schedule details
+          description: Trigger details
           content:
             application/json:
               schema:
@@ -555,7 +760,7 @@ paths:
     patch:
       operationId: updateSchedule
       tags: [schedules]
-      summary: Update a schedule
+      summary: Update a trigger
       parameters:
         - name: id
           in: path
@@ -570,7 +775,7 @@ paths:
               $ref: "#/components/schemas/UpdateScheduleBody"
       responses:
         "200":
-          description: Updated schedule
+          description: Updated trigger
           content:
             application/json:
               schema:
@@ -578,7 +783,7 @@ paths:
     delete:
       operationId: deleteSchedule
       tags: [schedules]
-      summary: Delete a schedule
+      summary: Delete a trigger
       parameters:
         - name: id
           in: path
@@ -593,7 +798,7 @@ paths:
     post:
       operationId: toggleSchedule
       tags: [schedules]
-      summary: Enable or disable a schedule
+      summary: Enable or disable a trigger
       parameters:
         - name: id
           in: path
@@ -608,7 +813,7 @@ paths:
               $ref: "#/components/schemas/ToggleScheduleBody"
       responses:
         "200":
-          description: Schedule toggled
+          description: Trigger toggled
           content:
             application/json:
               schema:
@@ -803,20 +1008,20 @@ paths:
               schema:
                 $ref: "#/components/schemas/DashboardSummary"
 
-  /dashboard/execution-stats:
+  /dashboard/job-stats:
     get:
-      operationId: getExecutionStats
+      operationId: getJobStats
       tags: [dashboard]
-      summary: Execution stats over the last 7 days
+      summary: Job stats over the last 7 days
       responses:
         "200":
-          description: Daily execution stats
+          description: Daily job stats
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/DailyExecutionStat"
+                  $ref: "#/components/schemas/DailyJobStat"
 
   /dashboard/queue-health:
     get:
@@ -833,20 +1038,20 @@ paths:
                 items:
                   $ref: "#/components/schemas/QueueHealth"
 
-  /dashboard/recent-executions:
+  /dashboard/recent-jobs:
     get:
-      operationId: getRecentExecutions
+      operationId: getRecentJobs
       tags: [dashboard]
-      summary: Recent executions across all queues
+      summary: Recent jobs across all queues
       responses:
         "200":
-          description: Recent executions
+          description: Recent jobs
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Execution"
+                  $ref: "#/components/schemas/Job"
 
   # ── EXECUTION LOGS ────────────────────────────────────────────────────────
   /execution-logs:
@@ -1062,18 +1267,9 @@ components:
         category:
           type: string
           description: "rpa | backend"
-        deployMethod:
-          type: string
-          description: "zip | git"
-        repositoryUrl:
-          type: ["string", "null"]
-        repositoryBranch:
-          type: ["string", "null"]
-        activeVersion:
-          type: ["string", "null"]
         status:
           type: string
-          description: "active | inactive | deploying"
+          description: "active | inactive"
         createdAt:
           type: string
         updatedAt:
@@ -1082,7 +1278,6 @@ components:
         - id
         - name
         - category
-        - deployMethod
         - status
         - createdAt
         - updatedAt
@@ -1096,16 +1291,9 @@ components:
           type: string
         category:
           type: string
-        deployMethod:
-          type: string
-        repositoryUrl:
-          type: string
-        repositoryBranch:
-          type: string
       required:
         - name
         - category
-        - deployMethod
 
     UpdateProjectBody:
       type: object
@@ -1116,14 +1304,127 @@ components:
           type: string
         category:
           type: string
+        status:
+          type: string
+
+    # ── AUTOMATION ──────────────────────────────────────────────────────────
+    Automation:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        version:
+          type: string
+        entrypoint:
+          type: string
+        deployMethod:
+          type: string
+          description: "zip | git"
+        repositoryUrl:
+          type: ["string", "null"]
+        repositoryBranch:
+          type: ["string", "null"]
+        inputParams:
+          type: ["object", "null"]
+          additionalProperties: true
+        outputParams:
+          type: ["object", "null"]
+          additionalProperties: true
+        active:
+          type: boolean
+        status:
+          type: string
+          description: "active | inactive"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        projectName:
+          type: ["string", "null"]
+      required:
+        - id
+        - projectId
+        - name
+        - version
+        - entrypoint
+        - deployMethod
+        - active
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateAutomationBody:
+      type: object
+      properties:
+        projectId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        version:
+          type: string
+        entrypoint:
+          type: string
         deployMethod:
           type: string
         repositoryUrl:
           type: string
         repositoryBranch:
           type: string
+        inputParams:
+          type: object
+          additionalProperties: true
+        outputParams:
+          type: object
+          additionalProperties: true
+      required:
+        - projectId
+        - name
+
+    UpdateAutomationBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        version:
+          type: string
+        entrypoint:
+          type: string
+        deployMethod:
+          type: string
+        repositoryUrl:
+          type: string
+        repositoryBranch:
+          type: string
+        inputParams:
+          type: object
+          additionalProperties: true
+        outputParams:
+          type: object
+          additionalProperties: true
+        active:
+          type: boolean
         status:
           type: string
+
+    RunAutomationBody:
+      type: object
+      properties:
+        machineId:
+          type: ["integer", "null"]
+        queueId:
+          type: ["integer", "null"]
+        inputData:
+          type: ["string", "null"]
 
     # ── QUEUE ────────────────────────────────────────────────────────────────
     Queue:
@@ -1219,32 +1520,114 @@ components:
         status:
           type: string
 
-    AddQueueItemBody:
-      type: object
-      properties:
-        machineId:
-          type: ["integer", "null"]
-        inputData:
-          type: ["string", "null"]
-
-    # ── EXECUTION ────────────────────────────────────────────────────────────
-    Execution:
+    # ── QUEUE ITEM (TRANSACTION) ─────────────────────────────────────────────
+    QueueItem:
       type: object
       properties:
         id:
           type: integer
         queueId:
           type: integer
-        projectId:
+        reference:
+          type: ["string", "null"]
+        data:
+          type: ["string", "null"]
+        priority:
+          type: string
+          description: "high | normal | low"
+        status:
+          type: string
+          description: "new | in_progress | successful | failed | abandoned"
+        attempts:
           type: integer
         machineId:
           type: ["integer", "null"]
+        jobId:
+          type: ["integer", "null"]
+        output:
+          type: ["string", "null"]
+        exception:
+          type: ["string", "null"]
+        deadline:
+          type: ["string", "null"]
+        startedAt:
+          type: ["string", "null"]
+        endedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        queueName:
+          type: ["string", "null"]
+        machineName:
+          type: ["string", "null"]
+      required:
+        - id
+        - queueId
+        - priority
+        - status
+        - attempts
+        - createdAt
+        - updatedAt
+
+    EnqueueItemBody:
+      type: object
+      properties:
+        reference:
+          type: string
+        data:
+          type: string
+        priority:
+          type: string
+        deadline:
+          type: string
+      required: []
+
+    DequeueBody:
+      type: object
+      properties:
+        machineId:
+          type: ["integer", "null"]
+
+    UpdateQueueItemBody:
+      type: object
+      properties:
         status:
           type: string
-          description: "pending | running | completed | error | stopped"
+        output:
+          type: string
+        exception:
+          type: string
+        priority:
+          type: string
+        data:
+          type: string
+
+    # ── JOB ──────────────────────────────────────────────────────────────────
+    Job:
+      type: object
+      properties:
+        id:
+          type: integer
+        automationId:
+          type: ["integer", "null"]
+        projectId:
+          type: integer
+        queueId:
+          type: ["integer", "null"]
+        machineId:
+          type: ["integer", "null"]
+        scheduleId:
+          type: ["integer", "null"]
+        status:
+          type: string
+          description: "pending | running | successful | faulted | stopped | skipped"
         attempt:
           type: integer
         inputData:
+          type: ["string", "null"]
+        outputData:
           type: ["string", "null"]
         exitCode:
           type: ["integer", "null"]
@@ -1262,13 +1645,14 @@ components:
           type: string
         projectName:
           type: ["string", "null"]
+        automationName:
+          type: ["string", "null"]
         queueName:
           type: ["string", "null"]
         machineName:
           type: ["string", "null"]
       required:
         - id
-        - queueId
         - projectId
         - status
         - attempt
@@ -1280,23 +1664,27 @@ components:
       properties:
         id:
           type: integer
-        executionId:
+        jobId:
           type: integer
         stream:
           type: string
           description: "stdout | stderr"
+        level:
+          type: string
+          description: "DEBUG | INFO | WARNING | ERROR"
         content:
           type: string
         timestamp:
           type: string
       required:
         - id
-        - executionId
+        - jobId
         - stream
+        - level
         - content
         - timestamp
 
-    # ── SCHEDULE ─────────────────────────────────────────────────────────────
+    # ── SCHEDULE (TRIGGER) ────────────────────────────────────────────────────
     Schedule:
       type: object
       properties:
@@ -1304,17 +1692,27 @@ components:
           type: integer
         name:
           type: string
+        automationId:
+          type: ["integer", "null"]
         queueId:
-          type: integer
+          type: ["integer", "null"]
+        targetMachineId:
+          type: ["integer", "null"]
         triggerType:
           type: string
-          description: "cron | interval | webhook"
+          description: "cron | interval | queue | webhook"
         cronExpression:
           type: ["string", "null"]
         intervalMinutes:
           type: ["integer", "null"]
         webhookToken:
           type: ["string", "null"]
+        minItemsToTrigger:
+          type: integer
+        maxConcurrentAgents:
+          type: integer
+        itemsPerAgent:
+          type: integer
         enabled:
           type: boolean
         lastTriggeredAt:
@@ -1325,13 +1723,19 @@ components:
           type: string
         updatedAt:
           type: string
+        automationName:
+          type: ["string", "null"]
         queueName:
+          type: ["string", "null"]
+        targetMachineName:
           type: ["string", "null"]
       required:
         - id
         - name
-        - queueId
         - triggerType
+        - minItemsToTrigger
+        - maxConcurrentAgents
+        - itemsPerAgent
         - enabled
         - createdAt
         - updatedAt
@@ -1341,7 +1745,11 @@ components:
       properties:
         name:
           type: string
+        automationId:
+          type: integer
         queueId:
+          type: integer
+        targetMachineId:
           type: integer
         triggerType:
           type: string
@@ -1349,9 +1757,14 @@ components:
           type: string
         intervalMinutes:
           type: integer
+        minItemsToTrigger:
+          type: integer
+        maxConcurrentAgents:
+          type: integer
+        itemsPerAgent:
+          type: integer
       required:
         - name
-        - queueId
         - triggerType
 
     UpdateScheduleBody:
@@ -1359,9 +1772,23 @@ components:
       properties:
         name:
           type: string
+        automationId:
+          type: integer
+        queueId:
+          type: integer
+        targetMachineId:
+          type: integer
+        triggerType:
+          type: string
         cronExpression:
           type: string
         intervalMinutes:
+          type: integer
+        minItemsToTrigger:
+          type: integer
+        maxConcurrentAgents:
+          type: integer
+        itemsPerAgent:
           type: integer
         enabled:
           type: boolean
@@ -1516,9 +1943,9 @@ components:
     DashboardSummary:
       type: object
       properties:
-        executionsToday:
+        jobsToday:
           type: integer
-        executionsRunning:
+        jobsRunning:
           type: integer
         successRate:
           type: number
@@ -1532,23 +1959,26 @@ components:
           type: integer
         projectsTotal:
           type: integer
+        automationsTotal:
+          type: integer
         errorsToday:
           type: integer
         pendingItems:
           type: integer
       required:
-        - executionsToday
-        - executionsRunning
+        - jobsToday
+        - jobsRunning
         - successRate
         - machinesOnline
         - machinesTotal
         - queuesActive
         - queuesPaused
         - projectsTotal
+        - automationsTotal
         - errorsToday
         - pendingItems
 
-    DailyExecutionStat:
+    DailyJobStat:
       type: object
       properties:
         date:

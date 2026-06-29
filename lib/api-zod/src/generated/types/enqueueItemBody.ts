@@ -6,9 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface AddQueueItemBody {
-  /** @nullable */
-  machineId?: number | null;
-  /** @nullable */
-  inputData?: string | null;
+export interface EnqueueItemBody {
+  reference?: string;
+  data?: string;
+  priority?: string;
+  deadline?: string;
 }

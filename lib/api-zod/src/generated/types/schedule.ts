@@ -9,8 +9,13 @@
 export interface Schedule {
   id: number;
   name: string;
-  queueId: number;
-  /** cron | interval | webhook */
+  /** @nullable */
+  automationId?: number | null;
+  /** @nullable */
+  queueId?: number | null;
+  /** @nullable */
+  targetMachineId?: number | null;
+  /** cron | interval | queue | webhook */
   triggerType: string;
   /** @nullable */
   cronExpression?: string | null;
@@ -18,6 +23,9 @@ export interface Schedule {
   intervalMinutes?: number | null;
   /** @nullable */
   webhookToken?: string | null;
+  minItemsToTrigger: number;
+  maxConcurrentAgents: number;
+  itemsPerAgent: number;
   enabled: boolean;
   /** @nullable */
   lastTriggeredAt?: string | null;
@@ -26,5 +34,9 @@ export interface Schedule {
   createdAt: string;
   updatedAt: string;
   /** @nullable */
+  automationName?: string | null;
+  /** @nullable */
   queueName?: string | null;
+  /** @nullable */
+  targetMachineName?: string | null;
 }

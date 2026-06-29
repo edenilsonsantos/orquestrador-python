@@ -6,9 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface DailyExecutionStat {
-  date: string;
-  completed: number;
-  errors: number;
-  total: number;
-}
+export type ListAutomationsParams = {
+  /**
+   * @nullable
+   */
+  projectId?: number | null;
+};
