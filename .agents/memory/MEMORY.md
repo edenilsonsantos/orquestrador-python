@@ -1,3 +1,4 @@
 - [Orval response schemas](orval-codegen.md) — Orval does not always generate a per-operation response zod schema (e.g. 201 bodies); return serialized object directly instead of importing a non-existent schema.
 - [Drizzle select vs zod response](drizzle-select-vs-response-schema.md) — hand-written `.select({...})` projections must include every field the generated response zod schema requires or the endpoint 500s at parse time (invisible to tsc); also: FOR UPDATE SKIP LOCKED can't lock the nullable side of a LEFT JOIN.
 - [Trigger runtime](trigger-runtime.md) — schedules become jobs via in-process scheduler (cron/interval/queue poll + webhook endpoint); deleting a schedule must null jobs.scheduleId first.
+- [api-server integration tests](api-server-integration-tests.md) — vitest+supertest re-validate route JSON against zod response schemas; isolated `<db>_test` DB via drizzle-kit push-force; use psql (not `pg`) in global setup.
