@@ -10,6 +10,7 @@ import ProjectsPage from "@/pages/projects";
 import QueuesPage from "@/pages/queues";
 import ExecutionsPage from "@/pages/executions";
 import ExecutionDetailPage from "@/pages/execution-detail";
+import ExecutionLogsPage from "@/pages/execution-logs";
 import SchedulesPage from "@/pages/schedules";
 import UsersPage from "@/pages/users";
 import AssetsPage from "@/pages/assets";
@@ -34,6 +35,7 @@ function Router() {
         <Route path="/queues" component={QueuesPage} />
         <Route path="/executions" component={ExecutionsPage} />
         <Route path="/executions/:id" component={ExecutionDetailPage} />
+        <Route path="/execution-logs" component={ExecutionLogsPage} />
         <Route path="/schedules" component={SchedulesPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/assets" component={AssetsPage} />

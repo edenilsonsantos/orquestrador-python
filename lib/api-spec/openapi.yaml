@@ -27,6 +27,10 @@ tags:
     description: Global assets (env vars, credentials, API keys)
   - name: agent
     description: Agent client download and integration
+  - name: execution-logs
+    description: Execution log ingestion and history
+  - name: api-keys
+    description: API key generation and management
 paths:
   /healthz:
     get:
@@ -844,7 +848,108 @@ paths:
                 items:
                   $ref: "#/components/schemas/Execution"
 
+  # ── EXECUTION LOGS ────────────────────────────────────────────────────────
+  /execution-logs:
+    get:
+      operationId: listExecutionLogs
+      tags: [execution-logs]
+      summary: List execution logs (optionally filtered by execution)
+      parameters:
+        - name: id_execucao
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of execution logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExecutionLog"
+    post:
+      operationId: ingestExecutionLog
+      tags: [execution-logs]
+      summary: Ingest an execution log (requires API key)
+      security:
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExecutionLogBody"
+      responses:
+        "201":
+          description: Log stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionLog"
+        "401":
+          description: Missing or invalid API key
+
+  # ── API KEYS ──────────────────────────────────────────────────────────────
+  /api-keys:
+    get:
+      operationId: listApiKeys
+      tags: [api-keys]
+      summary: List API keys (secret never returned)
+      responses:
+        "200":
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKey"
+    post:
+      operationId: createApiKey
+      tags: [api-keys]
+      summary: Generate a new API key (plaintext returned once)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyBody"
+      responses:
+        "201":
+          description: API key created — plaintext key returned only once
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+
+  /api-keys/{id}:
+    delete:
+      operationId: revokeApiKey
+      tags: [api-keys]
+      summary: Revoke an API key
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Revoked
+
 components:
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
   schemas:
     HealthStatus:
       type: object
@@ -1485,3 +1590,115 @@ components:
         - completed
         - errors
         - status
+
+    # ── EXECUTION LOGS ──────────────────────────────────────────────────────
+    ExecutionLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        id_execucao:
+          type: integer
+        id_automacao:
+          type: integer
+        vm:
+          type: string
+        fila:
+          type: string
+        fields:
+          type: object
+          additionalProperties: true
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - id_execucao
+        - id_automacao
+        - vm
+        - fila
+        - createdAt
+
+    CreateExecutionLogBody:
+      type: object
+      properties:
+        id_execucao:
+          type: integer
+        id_automacao:
+          type: integer
+        vm:
+          type: string
+        fila:
+          type: string
+        fields:
+          type: object
+          additionalProperties: true
+          nullable: true
+      required:
+        - id_execucao
+        - id_automacao
+        - vm
+        - fila
+
+    # ── API KEYS ────────────────────────────────────────────────────────────
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        keyPrefix:
+          type: string
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        revoked:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - keyPrefix
+        - revoked
+        - createdAt
+
+    ApiKeyCreated:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        keyPrefix:
+          type: string
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        revoked:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        key:
+          type: string
+      required:
+        - id
+        - name
+        - keyPrefix
+        - revoked
+        - createdAt
+        - key
+
+    CreateApiKeyBody:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name

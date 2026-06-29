@@ -313,6 +313,51 @@ export interface QueueHealth {
   status: string;
 }
 
+export type ExecutionLogFields = { [key: string]: unknown } | null;
+
+export interface ExecutionLog {
+  id: number;
+  id_execucao: number;
+  id_automacao: number;
+  vm: string;
+  fila: string;
+  fields?: ExecutionLogFields;
+  createdAt: string;
+}
+
+export type CreateExecutionLogBodyFields = { [key: string]: unknown } | null;
+
+export interface CreateExecutionLogBody {
+  id_execucao: number;
+  id_automacao: number;
+  vm: string;
+  fila: string;
+  fields?: CreateExecutionLogBodyFields;
+}
+
+export interface ApiKey {
+  id: number;
+  name: string;
+  keyPrefix: string;
+  lastUsedAt?: string | null;
+  revoked: boolean;
+  createdAt: string;
+}
+
+export interface ApiKeyCreated {
+  id: number;
+  name: string;
+  keyPrefix: string;
+  lastUsedAt?: string | null;
+  revoked: boolean;
+  createdAt: string;
+  key: string;
+}
+
+export interface CreateApiKeyBody {
+  name: string;
+}
+
 export type ListExecutionsParams = {
   status?: string;
   /**
@@ -323,5 +368,10 @@ export type ListExecutionsParams = {
    * @nullable
    */
   machineId?: number | null;
+  limit?: number;
+};
+
+export type ListExecutionLogsParams = {
+  id_execucao?: number;
   limit?: number;
 };

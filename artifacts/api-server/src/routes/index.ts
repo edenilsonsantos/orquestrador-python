@@ -9,6 +9,8 @@ import usersRouter from "./users";
 import dashboardRouter from "./dashboard";
 import assetsRouter from "./assets";
 import agentRouter from "./agent";
+import executionLogsRouter from "./execution-logs";
+import apiKeysRouter from "./api-keys";
 
 const router: IRouter = Router();
 
@@ -22,5 +24,7 @@ router.use(usersRouter);
 router.use(dashboardRouter);
 router.use(assetsRouter);
 router.use(agentRouter);
+router.use(executionLogsRouter);
+router.use(apiKeysRouter);
 
 export default router;

@@ -8,8 +8,13 @@
 
 export * from "./addQueueItemBody";
 export * from "./agentInfo";
+export * from "./apiKey";
+export * from "./apiKeyCreated";
 export * from "./asset";
+export * from "./createApiKeyBody";
 export * from "./createAssetBody";
+export * from "./createExecutionLogBody";
+export * from "./createExecutionLogBodyFields";
 export * from "./createMachineBody";
 export * from "./createProjectBody";
 export * from "./createQueueBody";
@@ -18,7 +23,10 @@ export * from "./createUserBody";
 export * from "./dailyExecutionStat";
 export * from "./dashboardSummary";
 export * from "./execution";
+export * from "./executionLog";
+export * from "./executionLogFields";
 export * from "./healthStatus";
+export * from "./listExecutionLogsParams";
 export * from "./listExecutionsParams";
 export * from "./logLine";
 export * from "./machine";

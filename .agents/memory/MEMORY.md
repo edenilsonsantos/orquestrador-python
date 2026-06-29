@@ -1,0 +1,1 @@
+- [Orval response schemas](orval-codegen.md) — Orval does not always generate a per-operation response zod schema (e.g. 201 bodies); return serialized object directly instead of importing a non-existent schema.

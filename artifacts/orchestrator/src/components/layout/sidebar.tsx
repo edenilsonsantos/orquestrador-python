@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Activity, Server, Users, Layers, PlayCircle, Clock, LayoutGrid, KeyRound, BookOpen } from "lucide-react";
+import { Activity, Server, Users, Layers, PlayCircle, Clock, LayoutGrid, KeyRound, BookOpen, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/projects", label: "Projetos", icon: LayoutGrid },
   { href: "/queues", label: "Filas", icon: Layers },
   { href: "/executions", label: "Execucoes", icon: PlayCircle },
+  { href: "/execution-logs", label: "Log de Execucao", icon: ScrollText },
   { href: "/schedules", label: "Agendamentos", icon: Clock },
   { href: "/assets", label: "Assets", icon: KeyRound },
   { href: "/users", label: "Usuarios", icon: Users },

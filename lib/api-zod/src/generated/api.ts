@@ -816,3 +816,62 @@ export const GetRecentExecutionsResponseItem = zod.object({
 export const GetRecentExecutionsResponse = zod.array(
   GetRecentExecutionsResponseItem,
 );
+
+/**
+ * @summary List execution logs (optionally filtered by execution)
+ */
+export const ListExecutionLogsQueryParams = zod.object({
+  id_execucao: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+});
+
+export const ListExecutionLogsResponseItem = zod.object({
+  id: zod.number(),
+  id_execucao: zod.number(),
+  id_automacao: zod.number(),
+  vm: zod.string(),
+  fila: zod.string(),
+  fields: zod.record(zod.string(), zod.unknown()).nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListExecutionLogsResponse = zod.array(
+  ListExecutionLogsResponseItem,
+);
+
+/**
+ * @summary Ingest an execution log (requires API key)
+ */
+export const IngestExecutionLogBody = zod.object({
+  id_execucao: zod.number(),
+  id_automacao: zod.number(),
+  vm: zod.string(),
+  fila: zod.string(),
+  fields: zod.record(zod.string(), zod.unknown()).nullish(),
+});
+
+/**
+ * @summary List API keys (secret never returned)
+ */
+export const ListApiKeysResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  keyPrefix: zod.string(),
+  lastUsedAt: zod.coerce.date().nullish(),
+  revoked: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListApiKeysResponse = zod.array(ListApiKeysResponseItem);
+
+/**
+ * @summary Generate a new API key (plaintext returned once)
+ */
+export const CreateApiKeyBody = zod.object({
+  name: zod.string(),
+});
+
+/**
+ * @summary Revoke an API key
+ */
+export const RevokeApiKeyParams = zod.object({
+  id: zod.coerce.number(),
+});
